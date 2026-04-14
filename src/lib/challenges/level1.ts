@@ -18,21 +18,22 @@ export const level1Challenges: ChallengeDefinition[] = [
     instructions: `## Your Task
 Set up basic GA4 page view tracking by creating:
 
-1. **A GA4 Configuration Tag**
+1. **A Page View Trigger**
+   - Trigger type: **Page View**
+   - Fires on: All pages (no conditions needed — leave conditions empty)
+   - Give it a name like *"All Pages"*
+
+2. **A GA4 Configuration Tag**
    - Tag type: **GA4 Configuration**
    - Measurement ID: \`G-DEMO12345\`
    - Give it a clear name like *"GA4 - Configuration"*
 
-2. **A Page View Trigger**
-   - Trigger type: **Page View**
-   - Fires on: All pages (no extra conditions needed)
-   - Give it a name like *"All Pages"*
-
 3. **Link the tag to the trigger**
-   - In the tag's Firing Trigger field, select your new Page View trigger`,
+   - In the tag's **Firing Trigger** field, select your *"All Pages"* trigger
+   - Note: you must create the trigger first — a tag cannot be saved without a firing trigger assigned`,
     objectives: [
-      'Create a GA4 Configuration tag with Measurement ID G-DEMO12345',
       'Create a Page View trigger that fires on all pages',
+      'Create a GA4 Configuration tag with Measurement ID G-DEMO12345',
       'Link the GA4 tag to the Page View trigger',
     ],
     mockWebsite: 'ecommerce',
@@ -92,23 +93,23 @@ Track clicks on the "Add to Cart" button by creating:
 
 1. **A Click Trigger**
    - Trigger type: **Click**
-   - Add a condition: **Click Element** → **contains** → \`.add-to-cart\`
-   - This targets any element with the class \`add-to-cart\`
+   - Add a condition: **Click Text** → **equals** → \`Add to Cart\`
+   - This fires when the user clicks an element whose visible text is exactly "Add to Cart"
 
 2. **A GA4 Event Tag**
    - Tag type: **GA4 Event**
    - Event name: \`add_to_cart\`
    - Link it to your new Click trigger`,
     objectives: [
-      'Create a Click trigger targeting elements with class .add-to-cart',
+      'Create a Click trigger where Click Text equals "Add to Cart"',
       'Create a GA4 Event tag with event name "add_to_cart"',
       'Link the GA4 Event tag to the Click trigger',
     ],
     mockWebsite: 'ecommerce',
     hints: [
       'Click triggers fire when a user clicks on an element matching your condition.',
-      'The Click Element condition checks the CSS selector of the clicked element.',
-      'Use the mock website to test: click "Add to Cart" and see if the event fires.',
+      'Use "Click Text" to target buttons by their visible label — more reliable than CSS selectors when button styling changes.',
+      'Use the mock website to test: click "Add to Cart" and see if the event fires in the event log.',
     ],
     successCriteria: [
       {
@@ -120,18 +121,18 @@ Track clicks on the "Add to Cart" button by creating:
       },
       {
         id: '1-2-b',
-        description: 'Click trigger targets the .add-to-cart element',
+        description: 'Click trigger targets buttons with text "Add to Cart"',
         check: (ws: WorkspaceState) => {
           const trigger = findTriggerByType(ws, 'Click');
           if (!trigger) return false;
           return trigger.conditions.some(
             (c) =>
-              c.variable === 'Click Element' &&
-              c.value.toLowerCase().includes('add-to-cart')
+              c.variable === 'Click Text' &&
+              c.value.toLowerCase().includes('add to cart')
           );
         },
         failureMessage:
-          "Your Click trigger doesn't target the right element. Add a condition: Click Element → contains → .add-to-cart",
+          "Your Click trigger doesn't have the right condition. Add a condition: Click Text → equals → Add to Cart",
       },
       {
         id: '1-2-c',
@@ -165,8 +166,10 @@ Prevent internal employee traffic from being tracked:
 
 1. **Create a Data Layer Variable**
    - Type: **Data Layer Variable**
-   - Variable name: \`userType\`
-   - This reads the value your devs push to the data layer
+   - Variable Name (display name): \`dlv_userType\`
+   - Data Layer Variable Name field: \`userType\`
+   - Leave the **Default Value** field blank
+   - The display name \`dlv_userType\` is what you'll select in trigger conditions
 
 2. **Create a conditional Page View trigger**
    - Type: **Page View**

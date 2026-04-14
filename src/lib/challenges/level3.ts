@@ -19,23 +19,28 @@ export const level3Challenges: ChallengeDefinition[] = [
 Implement consent-based tag firing:
 
 1. **Create two Data Layer Variables**
-   - Variable 1 name: \`analytics_consent\`
-   - Variable 2 name: \`ads_consent\`
+   - Variable 1 — Variable Name (display name): *"dlv_analytics_consent"*, **Data Layer Variable Name** field: \`analytics_consent\`, leave Default Value blank
+   - Variable 2 — Variable Name (display name): *"dlv_ads_consent"*, **Data Layer Variable Name** field: \`ads_consent\`, leave Default Value blank
+   - The display names must match exactly what you select in trigger conditions below
 
 2. **Create a consent-gated Page View trigger for GA4**
    - Type: **Page View**
-   - Condition: **dlv_analytics_consent** → **equals** → \`granted\`
+   - Name: *"Page View - Analytics Consent"*
+   - Add a condition: **dlv_analytics_consent** → **equals** → \`granted\`
 
 3. **Create a consent-gated Page View trigger for Ads**
    - Type: **Page View**
-   - Condition: **dlv_ads_consent** → **equals** → \`granted\`
+   - Name: *"Page View - Ads Consent"*
+   - Add a condition: **dlv_ads_consent** → **equals** → \`granted\`
 
 4. **Create a GA4 Configuration tag**
-   - Link it to the analytics consent trigger
+   - Measurement ID: \`G-CONSENT99\`
+   - Link it to your *"Page View - Analytics Consent"* trigger
 
 5. **Create a Google Ads Conversion tag**
    - Conversion ID: \`AW-CONSENT99\`
-   - Link it to the ads consent trigger`,
+   - Conversion Label field: leave blank (optional)
+   - Link it to your *"Page View - Ads Consent"* trigger`,
     objectives: [
       'Create Data Layer Variables for analytics_consent and ads_consent',
       'Create a Page View trigger gated on analytics_consent = "granted"',
@@ -286,26 +291,29 @@ Inspect each trigger carefully and correct the mistakes.`,
 Set up multi-channel event tracking across 3 sources:
 
 1. **Create a Data Layer Variable** for the channel
-   - Variable name: \`channel\`
+   - Variable Name (display name): *"dlv_channel"*
+   - **Data Layer Variable Name** field: \`channel\`
+   - Leave Default Value blank
    - Devs push this with every interaction (e.g. \`{ channel: 'paid_search' }\`)
 
 2. **Create 3 Custom Event Triggers** (one per channel)
-   - Trigger A: Custom Event → event name: \`paid_search_click\`
-   - Trigger B: Custom Event → event name: \`social_click\`
-   - Trigger C: Custom Event → event name: \`email_click\`
+   - Trigger A — Name: *"Custom Event - Paid Search"*, **Custom Event Name** field: \`paid_search_click\`
+   - Trigger B — Name: *"Custom Event - Social"*, **Custom Event Name** field: \`social_click\`
+   - Trigger C — Name: *"Custom Event - Email"*, **Custom Event Name** field: \`email_click\`
 
 3. **Create a GA4 Event Tag for channel interactions**
    - Event name: \`channel_interaction\`
-   - Custom dimension: key \`channel\`, value → your channel variable
-   - This tag needs to fire on **all three triggers** (set Firing Trigger to any one, we'll validate all three exist)
+   - Add a custom dimension: key \`channel\`, value → \`dlv_channel\`
+   - Set Firing Trigger to any one of your three channel triggers (we validate all three triggers exist separately)
 
 4. **Create one more Custom Event Trigger** for the conversion
-   - Custom Event → event name: \`purchase\`
+   - Name: *"Custom Event - Purchase"*
+   - **Custom Event Name** field: \`purchase\`
 
 5. **Create a GA4 Event Tag for the conversion**
    - Event name: \`purchase\`
-   - Custom dimension: key \`channel\`, value → channel variable (last-touch attribution)
-   - Link to the purchase trigger`,
+   - Add a custom dimension: key \`channel\`, value → \`dlv_channel\` (last-touch attribution)
+   - Firing Trigger: select your *"Custom Event - Purchase"* trigger`,
     objectives: [
       'Create a Data Layer Variable for "channel"',
       'Create 3 Custom Event triggers (paid_search_click, social_click, email_click)',

@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Tag, TagType, Trigger } from '@/lib/types/gtm';
-import { X, Plus, Trash2 } from 'lucide-react';
+import { X, Plus, Trash2, Tag as TagIcon } from 'lucide-react';
 
 const tagSchema = z.object({
   name: z.string().min(1, 'Tag name is required'),
@@ -122,8 +122,30 @@ export function TagForm({ triggers, existingTag, onSave, onCancel }: TagFormProp
     setCustomDimensions(customDimensions.map((d, idx) => (idx === i ? { ...d, [field]: val } : d)));
   };
 
+  // GTM-style type icon colors
+  const typeColor: Record<string, string> = {
+    GA4Configuration: 'bg-orange-500',
+    GA4Event: 'bg-orange-400',
+    GoogleAdsConversion: 'bg-blue-500',
+    ConversionLinker: 'bg-blue-400',
+    CustomHTML: 'bg-gray-600',
+  };
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      {/* GTM-style header strip */}
+      {selectedType && (
+        <div className={`-mx-4 -mt-4 px-4 py-3 mb-2 flex items-center gap-3 ${typeColor[selectedType] ?? 'bg-gray-500'} rounded-t-xl`}>
+          <div className="w-8 h-8 rounded bg-white/20 flex items-center justify-center">
+            <TagIcon className="h-4 w-4 text-white" />
+          </div>
+          <div>
+            <p className="text-white font-semibold text-sm">{TAG_TYPE_LABELS[selectedType as TagType] ?? 'Tag'}</p>
+            <p className="text-white/70 text-xs">Tag Configuration</p>
+          </div>
+        </div>
+      )}
+
       {/* Name */}
       <div className="space-y-1">
         <Label htmlFor="tag-name">Tag Name</Label>

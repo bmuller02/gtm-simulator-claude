@@ -35,7 +35,7 @@ export default function LandingPage() {
 
   const handleStart = () => {
     if (allDone) {
-      router.push('/certificate');
+      router.push('/quiz');
       return;
     }
     const firstIncomplete = ALL_CHALLENGES.find((c) => !completedChallenges.includes(c.id));
@@ -81,7 +81,7 @@ export default function LandingPage() {
               className="bg-blue-500 hover:bg-blue-400 text-white font-semibold px-8 gap-2"
             >
               {allDone ? (
-                <><Trophy className="h-5 w-5" />View Certificate</>
+                <><Trophy className="h-5 w-5" />Final Quiz & Certificate</>
               ) : totalCompleted > 0 ? (
                 <>Continue Learning<ArrowRight className="h-4 w-4" /></>
               ) : (
@@ -194,10 +194,10 @@ export default function LandingPage() {
           </div>
           {allDone && (
             <Button
-              onClick={() => router.push('/certificate')}
+              onClick={() => router.push('/quiz')}
               className="ml-auto bg-yellow-500 hover:bg-yellow-400 text-black font-semibold text-sm shrink-0"
             >
-              Claim Certificate
+              Take Final Quiz →
             </Button>
           )}
         </div>

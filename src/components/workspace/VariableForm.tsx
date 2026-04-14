@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Variable, VariableType } from '@/lib/types/gtm';
+import { Variable as VarIcon } from 'lucide-react';
 
 const variableSchema = z.object({
   name: z.string().min(1, 'Variable name is required'),
@@ -97,8 +98,29 @@ export function VariableForm({ existingVariable, onSave, onCancel }: VariableFor
     onSave(variable);
   };
 
+  const typeColor: Record<string, string> = {
+    DataLayer: 'bg-teal-600',
+    DOMElement: 'bg-indigo-500',
+    JavaScriptVariable: 'bg-yellow-600',
+    Constant: 'bg-gray-500',
+    Cookie: 'bg-pink-500',
+  };
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      {/* GTM-style header strip */}
+      {selectedType && (
+        <div className={`-mx-4 -mt-4 px-4 py-3 mb-2 flex items-center gap-3 ${typeColor[selectedType] ?? 'bg-gray-500'} rounded-t-xl`}>
+          <div className="w-8 h-8 rounded bg-white/20 flex items-center justify-center">
+            <VarIcon className="h-4 w-4 text-white" />
+          </div>
+          <div>
+            <p className="text-white font-semibold text-sm">{VARIABLE_TYPE_LABELS[selectedType as VariableType] ?? 'Variable'}</p>
+            <p className="text-white/70 text-xs">Variable Configuration</p>
+          </div>
+        </div>
+      )}
+
       {/* Name */}
       <div className="space-y-1">
         <Label htmlFor="var-name">Variable Name</Label>

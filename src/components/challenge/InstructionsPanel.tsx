@@ -22,6 +22,69 @@ const LEVEL_NAMES = {
   3: 'Advanced',
 };
 
+// ── Glossary ──────────────────────────────────────────────────────────────────
+// Keys are lowercase. Phrases are matched case-insensitively in the text.
+const GLOSSARY: Record<string, string> = {
+  'data layer': 'A JavaScript array (window.dataLayer) on the page that developers push structured data into. GTM reads this data to power tags and triggers.',
+  'data layer variable': 'A GTM variable type that reads a specific key from the dataLayer array. If the dev pushes { userType: "internal" }, a Data Layer Variable named "userType" captures that value.',
+  'custom event': 'In the context of GTM triggers, a custom event is NOT the GA4 "Custom Event" tag type. It refers to a developer-pushed dataLayer event: dataLayer.push({ event: "purchase" }). The Custom Event trigger listens for these specific event names.',
+  'page view trigger': 'Fires when a browser loads a new page. Can have conditions (e.g. only on URLs containing "/products") or fire on all pages.',
+  'click trigger': 'Fires when a user clicks an element matching your conditions. Use "Click Text" to match a button\'s label, or "Click Element" to match by CSS selector.',
+  'form submission trigger': 'Fires when a user submits an HTML form. Can fire on all forms or only forms matching specific conditions.',
+  'firing trigger': 'The trigger assigned to a tag that determines when the tag fires. A tag will not fire unless it has a firing trigger assigned.',
+  'measurement id': 'A unique identifier for your GA4 property, formatted as G-XXXXXXXXX. Found in your GA4 property settings under Data Streams.',
+  'custom dimension': 'Extra data parameters you attach to a GA4 event. For example, sending { email: "user@co.com" } alongside a form_submission event lets you segment that data in GA4 reports.',
+  'css selector': 'A pattern used to identify HTML elements, e.g. input[name="email"] targets an input whose name attribute is "email". The same syntax used in CSS stylesheets.',
+  'dom element': 'Any HTML element on a webpage (a button, input field, div, etc.). GTM\'s DOM Element variable type lets you read any attribute from any element.',
+  'tag sequencing': 'A GTM feature that guarantees one tag fires before another. Set the "Setup Tag" field on a tag to ensure a prerequisite tag (like Conversion Linker) fires first.',
+  'conversion linker': 'A Google tag that stores click information from Google Ads URLs in first-party cookies, enabling cross-device and cross-domain conversion tracking.',
+  'consent mode': 'A Google framework that lets tags operate in a cookieless mode when users deny consent. Cookieless pings are sent instead of full tracking data, preserving some measurement capability.',
+};
+
+// Build a regex that matches any glossary term (longest first to avoid partial matches)
+const glossaryKeys = Object.keys(GLOSSARY).sort((a, b) => b.length - a.length);
+const glossaryRegex = new RegExp(`(${glossaryKeys.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi');
+
+// ── GlossaryText: renders text with inline tooltip-enabled glossary terms ─────
+function GlossaryText({ text }: { text: string }) {
+  const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
+
+  // Split text into plain and glossary segments
+  const parts = text.split(glossaryRegex);
+
+  return (
+    <span>
+      {parts.map((part, i) => {
+        const lower = part.toLowerCase();
+        const definition = GLOSSARY[lower];
+        if (!definition) return <span key={i}>{part}</span>;
+
+        const isActive = activeTooltip === `${i}-${lower}`;
+        return (
+          <span key={i} className="relative inline">
+            <span
+              className="underline decoration-dotted decoration-blue-400 text-blue-700 cursor-help font-medium"
+              onMouseEnter={() => setActiveTooltip(`${i}-${lower}`)}
+              onMouseLeave={() => setActiveTooltip(null)}
+              onFocus={() => setActiveTooltip(`${i}-${lower}`)}
+              onBlur={() => setActiveTooltip(null)}
+            >
+              {part}
+            </span>
+            {isActive && (
+              <span className="absolute bottom-full left-0 z-50 w-64 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl leading-relaxed pointer-events-none mb-1">
+                <span className="font-semibold text-blue-300 block mb-1">{part}</span>
+                {definition}
+                <span className="absolute top-full left-3 border-4 border-transparent border-t-gray-900" />
+              </span>
+            )}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 export function InstructionsPanel({ challenge }: InstructionsPanelProps) {
   const [hintsExpanded, setHintsExpanded] = useState(false);
 
@@ -55,7 +118,7 @@ export function InstructionsPanel({ challenge }: InstructionsPanelProps) {
               <span className="shrink-0 w-4 h-4 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center text-xs font-medium mt-0.5">
                 {i + 1}
               </span>
-              {obj}
+              <GlossaryText text={obj} />
             </li>
           ))}
         </ul>
@@ -71,10 +134,10 @@ export function InstructionsPanel({ challenge }: InstructionsPanelProps) {
             if (line.startsWith('## ')) {
               return <h3 key={i} className="font-semibold text-gray-800 text-xs mt-3 first:mt-0">{line.replace('## ', '')}</h3>;
             }
-            if (line.startsWith('1. ') || line.startsWith('2. ') || line.startsWith('3. ') || line.startsWith('4. ') || line.startsWith('5. ')) {
-              const parts = line.split('. ');
-              const num = parts[0];
-              const content = parts.slice(1).join('. ');
+            if (/^[1-9]\. /.test(line)) {
+              const dotIdx = line.indexOf('. ');
+              const num = line.slice(0, dotIdx);
+              const content = line.slice(dotIdx + 2);
               return (
                 <div key={i} className="flex gap-2">
                   <span className="shrink-0 w-5 h-5 bg-gray-100 text-gray-600 rounded-full flex items-center justify-center text-xs font-medium">
@@ -112,7 +175,7 @@ export function InstructionsPanel({ challenge }: InstructionsPanelProps) {
           <div>
             <button
               onClick={() => setHintsExpanded(!hintsExpanded)}
-              className="flex items-center gap-1.5 text-sm font-medium text-amber-700 hover:text-amber-800 transition-colors"
+              className="flex items-center gap-1.5 text-sm font-medium text-amber-700 hover:text-amber-800 transition-colors w-full"
             >
               <Lightbulb className="h-4 w-4" />
               Hints ({challenge.hints.length})
@@ -135,6 +198,10 @@ export function InstructionsPanel({ challenge }: InstructionsPanelProps) {
           </div>
         </>
       )}
+
+      <p className="text-xs text-blue-500 italic pt-1">
+        Hover over <span className="underline decoration-dotted">underlined terms</span> for definitions.
+      </p>
     </div>
   );
 }
@@ -142,5 +209,6 @@ export function InstructionsPanel({ challenge }: InstructionsPanelProps) {
 function formatLine(text: string): string {
   return text
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/`([^`]+)`/g, '<code class="bg-gray-100 px-1 rounded text-xs font-mono">$1</code>');
+    .replace(/`([^`]+)`/g, '<code class="bg-gray-100 px-1 rounded text-xs font-mono">$1</code>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>');
 }

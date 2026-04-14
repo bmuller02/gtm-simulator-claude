@@ -20,18 +20,19 @@ Track form submissions and capture the email address:
 
 1. **Create a DOM Element Variable**
    - Type: **DOM Element**
+   - Variable Name (display name): *"DOM - Email Input Value"*
    - CSS Selector: \`input[name="email"]\`
-   - Attribute: \`value\`
-   - Name it *"DOM - Email Input Value"*
+   - Attribute Name: \`value\`
+   - Tip: Switch to the **Preview Site** tab — the email field shows its CSS selector hint directly below it
 
 2. **Create a Form Submission Trigger**
    - Type: **Form Submission**
-   - No extra conditions (fires on all form submissions)
+   - Leave conditions empty (fires on all form submissions)
 
 3. **Create a GA4 Event Tag**
    - Type: **GA4 Event**
    - Event name: \`form_submission\`
-   - Add a custom dimension: key \`email\`, value → select your DOM variable
+   - Add a custom dimension: key \`email\`, value → type the name of your DOM variable (e.g. \`DOM - Email Input Value\`)
    - Link it to your Form Submission trigger`,
     objectives: [
       'Create a DOM Element variable targeting input[name="email"] with attribute "value"',
@@ -117,19 +118,22 @@ Track form submissions and capture the email address:
 Set up purchase conversion tracking:
 
 1. **Create a Data Layer Variable** for the order value
-   - Variable name: \`transactionRevenue\`
-   - This holds the dollar amount the customer paid
+   - Type: **Data Layer Variable**
+   - Variable Name (display name): *"dlv_transactionRevenue"*
+   - **Data Layer Variable Name** field: \`transactionRevenue\` (this must exactly match the key the dev team pushes)
+   - Leave the **Default Value** field blank
 
 2. **Create a Custom Event Trigger**
    - Type: **Custom Event**
-   - Event name: \`purchase\`
+   - **Custom Event Name** field: \`purchase\`
+   - No additional conditions are needed — the event name field IS the condition
    - This fires when developers push \`{ event: 'purchase' }\` to the data layer
 
 3. **Create a GA4 Event Tag**
    - Type: **GA4 Event**
    - Event name: \`purchase\`
-   - Add a custom dimension: key \`value\`, value → your transactionRevenue variable
-   - Link it to the Custom Event trigger`,
+   - Add a custom dimension: key \`value\`, value → type \`dlv_transactionRevenue\` (the name of your variable)
+   - Link it to your Custom Event trigger`,
     objectives: [
       'Create a Data Layer Variable named "transactionRevenue"',
       'Create a Custom Event trigger for the "purchase" event',

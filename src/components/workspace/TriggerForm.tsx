@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Trigger, TriggerType, TriggerCondition, ConditionOperator } from '@/lib/types/gtm';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Zap } from 'lucide-react';
 
 const triggerSchema = z.object({
   name: z.string().min(1, 'Trigger name is required'),
@@ -109,8 +109,28 @@ export function TriggerForm({ existingTrigger, onSave, onCancel }: TriggerFormPr
     onSave(trigger);
   };
 
+  const typeColor: Record<string, string> = {
+    PageView: 'bg-green-600',
+    Click: 'bg-yellow-500',
+    FormSubmission: 'bg-purple-500',
+    CustomEvent: 'bg-blue-600',
+  };
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      {/* GTM-style header strip */}
+      {selectedType && (
+        <div className={`-mx-4 -mt-4 px-4 py-3 mb-2 flex items-center gap-3 ${typeColor[selectedType] ?? 'bg-gray-500'} rounded-t-xl`}>
+          <div className="w-8 h-8 rounded bg-white/20 flex items-center justify-center">
+            <Zap className="h-4 w-4 text-white" />
+          </div>
+          <div>
+            <p className="text-white font-semibold text-sm">{TRIGGER_TYPE_LABELS[selectedType as TriggerType] ?? 'Trigger'}</p>
+            <p className="text-white/70 text-xs">Trigger Configuration</p>
+          </div>
+        </div>
+      )}
+
       {/* Name */}
       <div className="space-y-1">
         <Label htmlFor="trigger-name">Trigger Name</Label>
@@ -174,75 +194,82 @@ export function TriggerForm({ existingTrigger, onSave, onCancel }: TriggerFormPr
         )}
 
         {conditions.map((condition, i) => (
-          <div key={i} className="flex gap-2 items-start">
-            {/* Variable */}
-            <div className="flex-1 min-w-0">
-              <Select
-                value={condition.variable}
-                onValueChange={(val) => {
-                  if (!val) return;
-                  if (val === 'Custom Variable') {
-                    updateCondition(i, 'variable', '');
-                    setCustomVarInputs({ ...customVarInputs, [i]: 'custom' });
-                  } else {
-                    updateCondition(i, 'variable', val);
-                    setCustomVarInputs({ ...customVarInputs, [i]: '' });
-                  }
-                }}
-              >
-                <SelectTrigger className="text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CONDITION_VARIABLE_OPTIONS.map((opt) => (
-                    <SelectItem key={opt} value={opt} className="text-xs">{opt}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {customVarInputs[i] === 'custom' && (
-                <Input
-                  className="mt-1 text-xs"
-                  placeholder="Variable name"
+          <div key={i} className="border rounded-md p-2 space-y-2 bg-gray-50">
+            <div className="flex gap-2 items-center">
+              {/* Variable */}
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-muted-foreground mb-1">Variable</p>
+                <Select
                   value={condition.variable}
-                  onChange={(e) => updateCondition(i, 'variable', e.target.value)}
-                />
-              )}
-            </div>
+                  onValueChange={(val) => {
+                    if (!val) return;
+                    if (val === 'Custom Variable') {
+                      updateCondition(i, 'variable', '');
+                      setCustomVarInputs({ ...customVarInputs, [i]: 'custom' });
+                    } else {
+                      updateCondition(i, 'variable', val);
+                      setCustomVarInputs({ ...customVarInputs, [i]: '' });
+                    }
+                  }}
+                >
+                  <SelectTrigger className="text-xs h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CONDITION_VARIABLE_OPTIONS.map((opt) => (
+                      <SelectItem key={opt} value={opt} className="text-xs">{opt}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {customVarInputs[i] === 'custom' && (
+                  <Input
+                    className="mt-1 text-xs h-8"
+                    placeholder="Variable name"
+                    value={condition.variable}
+                    onChange={(e) => updateCondition(i, 'variable', e.target.value)}
+                  />
+                )}
+              </div>
 
-            {/* Operator */}
-            <div className="w-36 shrink-0">
-              <Select
-                value={condition.operator}
-                onValueChange={(val) => val && updateCondition(i, 'operator', val as ConditionOperator)}
+              {/* Operator */}
+              <div className="w-36 shrink-0">
+                <p className="text-xs text-muted-foreground mb-1">Operator</p>
+                <Select
+                  value={condition.operator}
+                  onValueChange={(val) => val && updateCondition(i, 'operator', val as ConditionOperator)}
+                >
+                  <SelectTrigger className="text-xs h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(OPERATOR_LABELS).map(([value, label]) => (
+                      <SelectItem key={value} value={value} className="text-xs">{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => removeCondition(i)}
+                className="shrink-0 mt-4"
               >
-                <SelectTrigger className="text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(OPERATOR_LABELS).map(([value, label]) => (
-                    <SelectItem key={value} value={value} className="text-xs">{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <Trash2 className="h-3 w-3 text-red-400" />
+              </Button>
             </div>
 
-            {/* Value */}
-            <Input
-              className="flex-1 text-xs"
-              placeholder="Value"
-              value={condition.value}
-              onChange={(e) => updateCondition(i, 'value', e.target.value)}
-            />
-
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={() => removeCondition(i)}
-              className="shrink-0"
-            >
-              <Trash2 className="h-3 w-3 text-red-400" />
-            </Button>
+            {/* Value on its own row */}
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">Value</p>
+              <Input
+                className="text-xs h-8"
+                placeholder="e.g. /products, Add to Cart, internal"
+                value={condition.value}
+                onChange={(e) => updateCondition(i, 'value', e.target.value)}
+              />
+            </div>
           </div>
         ))}
       </div>

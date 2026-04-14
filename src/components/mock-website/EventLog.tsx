@@ -13,11 +13,12 @@ export interface EventLogEntry {
 
 interface EventLogProps {
   events: EventLogEntry[];
+  height?: number;
 }
 
-export function EventLog({ events }: EventLogProps) {
+export function EventLog({ events, height = 120 }: EventLogProps) {
   return (
-    <div className="border-t bg-gray-900 text-green-400 font-mono text-xs shrink-0" style={{ height: '120px' }}>
+    <div className="border-t bg-gray-900 text-green-400 font-mono text-xs shrink-0" style={{ height: `${height}px` }}>
       <div className="px-3 py-1.5 border-b border-gray-700 flex items-center gap-2">
         <Activity className="h-3 w-3" />
         <span className="text-gray-300 text-xs">Data Layer Events</span>

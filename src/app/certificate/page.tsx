@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,6 @@ export default function CertificatePage() {
   const [showCertificate, setShowCertificate] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [hydrated, setHydrated] = useState(false);
-  const certRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setHydrated(true);
@@ -34,35 +33,149 @@ export default function CertificatePage() {
   };
 
   const handleDownload = async () => {
-    if (!certRef.current) return;
     setIsDownloading(true);
     try {
-      const html2canvas = (await import('html2canvas')).default;
       const jsPDF = (await import('jspdf')).default;
 
-      const canvas = await html2canvas(certRef.current, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#0f172a',
-      });
+      // Draw the certificate directly on canvas to avoid html2canvas oklch color parsing issues
+      const W = 2480; // A4 landscape at 300dpi
+      const H = 1754;
+      const canvas = document.createElement('canvas');
+      canvas.width = W;
+      canvas.height = H;
+      const ctx = canvas.getContext('2d')!;
 
-      const pdf = new jsPDF({
-        orientation: 'landscape',
-        unit: 'mm',
-        format: 'a4',
-      });
+      // Background gradient
+      const bg = ctx.createLinearGradient(0, 0, W, H);
+      bg.addColorStop(0, '#0f172a');
+      bg.addColorStop(0.5, '#0c1a2e');
+      bg.addColorStop(1, '#0f172a');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      // Decorative corner circles
+      ctx.fillStyle = 'rgba(59,130,246,0.07)';
+      ctx.beginPath(); ctx.arc(-100, -100, 500, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(234,179,8,0.07)';
+      ctx.beginPath(); ctx.arc(W + 100, H + 100, 500, 0, Math.PI * 2); ctx.fill();
+
+      // Top rainbow bar
+      const bar = ctx.createLinearGradient(0, 0, W, 0);
+      bar.addColorStop(0, '#3b82f6');
+      bar.addColorStop(0.5, '#facc15');
+      bar.addColorStop(1, '#3b82f6');
+      ctx.fillStyle = bar;
+      ctx.fillRect(0, 0, W, 8);
+
+      // Border
+      ctx.strokeStyle = 'rgba(234,179,8,0.4)';
+      ctx.lineWidth = 6;
+      ctx.strokeRect(3, 3, W - 6, H - 6);
+
+      // Stars row
+      const starY = 200;
+      const starColors = '#facc15';
+      for (let s = 0; s < 5; s++) {
+        drawStar(ctx, W / 2 - 96 + s * 48, starY, 16, starColors);
+      }
+
+      // "Certificate of Completion" label
+      ctx.fillStyle = '#93c5fd';
+      ctx.font = 'bold 52px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.letterSpacing = '8px';
+      ctx.fillText('CERTIFICATE OF COMPLETION', W / 2, starY + 80);
+
+      // Name
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 120px Georgia, serif';
+      ctx.fillText(nameInput || userName || 'Your Name', W / 2, starY + 240);
+
+      // Gold divider
+      ctx.fillStyle = '#facc15';
+      ctx.fillRect(W / 2 - 160, starY + 280, 320, 4);
+
+      // Body text
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = '48px sans-serif';
+      ctx.fillText('has successfully completed all 9 challenges of the', W / 2, starY + 370);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 72px sans-serif';
+      ctx.fillText('GTM Simulator', W / 2, starY + 460);
+
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = '40px sans-serif';
+      ctx.fillText('demonstrating proficiency in Google Tag Manager including tag configuration,', W / 2, starY + 540);
+      ctx.fillText('trigger management, variable setup, and advanced implementation strategies.', W / 2, starY + 600);
+
+      // Stats row
+      const statsY = starY + 740;
+      ctx.fillStyle = 'rgba(255,255,255,0.08)';
+      roundRect(ctx, W / 2 - 520, statsY - 60, 320, 120, 16);
+      roundRect(ctx, W / 2 - 160, statsY - 60, 320, 120, 16);
+      roundRect(ctx, W / 2 + 200, statsY - 60, 320, 120, 16);
+
+      ctx.fillStyle = '#ffffff'; ctx.font = 'bold 52px sans-serif';
+      ctx.fillText('9/9', W / 2 - 360, statsY + 10);
+      ctx.fillStyle = '#94a3b8'; ctx.font = '32px sans-serif';
+      ctx.fillText('Challenges Completed', W / 2 - 360, statsY + 52);
+
+      const dateStr = completionDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      ctx.fillStyle = '#ffffff'; ctx.font = 'bold 40px sans-serif';
+      ctx.fillText(dateStr, W / 2, statsY + 10);
+      ctx.fillStyle = '#94a3b8'; ctx.font = '32px sans-serif';
+      ctx.fillText('Date of Completion', W / 2, statsY + 52);
+
+      ctx.fillStyle = '#facc15'; ctx.font = 'bold 52px sans-serif';
+      ctx.fillText('Advanced', W / 2 + 360, statsY + 10);
+      ctx.fillStyle = '#94a3b8'; ctx.font = '32px sans-serif';
+      ctx.fillText('Skill Level Achieved', W / 2 + 360, statsY + 52);
+
+      // Footer
+      ctx.fillStyle = '#475569';
+      ctx.font = '32px sans-serif';
+      ctx.fillText('GTM Simulator — Interactive Learning Platform', W / 2, H - 60);
 
       const imgData = canvas.toDataURL('image/png');
-      const pdfWidth = 297;
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, Math.min(pdfHeight, 210));
-      pdf.save(`GTM-Simulator-Certificate-${nameInput.trim().replace(/\s+/g, '-')}.pdf`);
+      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      pdf.addImage(imgData, 'PNG', 0, 0, 297, 210);
+      pdf.save(`GTM-Simulator-Certificate-${(nameInput || 'certificate').trim().replace(/\s+/g, '-')}.pdf`);
     } catch (err) {
       console.error('Download failed:', err);
     } finally {
       setIsDownloading(false);
     }
   };
+
+  function drawStar(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, color: string) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    for (let i = 0; i < 5; i++) {
+      const outerAngle = (i * 4 * Math.PI) / 5 - Math.PI / 2;
+      const innerAngle = outerAngle + (2 * Math.PI) / 10;
+      if (i === 0) ctx.moveTo(cx + r * Math.cos(outerAngle), cy + r * Math.sin(outerAngle));
+      else ctx.lineTo(cx + r * Math.cos(outerAngle), cy + r * Math.sin(outerAngle));
+      ctx.lineTo(cx + (r / 2) * Math.cos(innerAngle), cy + (r / 2) * Math.sin(innerAngle));
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+    ctx.fill();
+  }
 
   if (!hydrated) return null;
 
@@ -165,7 +278,6 @@ export default function CertificatePage() {
           >
             {/* Certificate template */}
             <div
-              ref={certRef}
               className="bg-slate-900 rounded-2xl border-2 border-yellow-500/50 overflow-hidden"
               style={{ aspectRatio: '1.414 / 1', position: 'relative' }}
             >

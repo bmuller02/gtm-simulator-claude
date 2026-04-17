@@ -1,66 +1,65 @@
 import { ChallengeDefinition } from '@/lib/types/challenge';
-import { WorkspaceState, GA4ConfigurationConfig, GA4EventConfig, DataLayerVariableConfig } from '@/lib/types/gtm';
+import { WorkspaceState, DataLayerVariableConfig, GoogleTagConfig, FloodlightActivityConfig } from '@/lib/types/gtm';
 import {
-  findTagByType, tagExists, triggerExists, findTriggerByType,
-  findDataLayerVariable, triggerHasCondition, tagLinkedToTriggerType,
-  getGA4Config, ga4EventTagWithName, findTagsByType
+  tagExists, triggerExists, findTagByType, findTriggerByType,
+  tagLinkedToTriggerType, findTagsByType
 } from '@/lib/validation/engine';
 
 export const level1Challenges: ChallengeDefinition[] = [
-  // ─── Challenge 1-1: Track All Page Views ─────────────────────────────────
+  // ─── Challenge 1-1: Install the Universal Google Tag ─────────────────────
   {
     id: '1-1',
     level: 1,
     index: 1,
-    title: 'Track All Page Views with GA4',
+    title: 'Install the Universal Google Tag',
     scenario:
-      "A marketing team at a growing e-commerce brand needs to start measuring website traffic. Your job is to install Google Analytics 4 on their site using Google Tag Manager. Every page a visitor loads should be tracked.",
+      "Your AdOps team is onboarding a new advertiser into Campaign Manager 360 (CM360). Before any Floodlight activity tags can fire and report conversions, you must first install the advertiser's universal Google Tag on every page of the site. This tag links the site to CM360's Floodlight configuration.",
     instructions: `## Your Task
-Set up basic GA4 page view tracking by creating:
+Install the universal Google Tag to enable Floodlight tracking:
 
-1. **A Page View Trigger**
+1. **Create a Page View Trigger**
    - Trigger type: **Page View**
    - Fires on: All pages (no conditions needed — leave conditions empty)
    - Give it a name like *"All Pages"*
+   - Note: you must create the trigger first — a tag cannot be saved without a firing trigger assigned
 
-2. **A GA4 Configuration Tag**
-   - Tag type: **GA4 Configuration**
-   - Measurement ID: \`G-DEMO12345\`
-   - Give it a clear name like *"GA4 - Configuration"*
+2. **Create a Google Tag**
+   - Tag type: **Google Tag**
+   - Tag ID: \`DC-DEMO12345\`
+   - Give it a clear name like *"Google Tag - CM360"*
 
 3. **Link the tag to the trigger**
-   - In the tag's **Firing Trigger** field, select your *"All Pages"* trigger
-   - Note: you must create the trigger first — a tag cannot be saved without a firing trigger assigned`,
+   - In the tag's **Firing Trigger** field, select your *"All Pages"* trigger`,
     objectives: [
       'Create a Page View trigger that fires on all pages',
-      'Create a GA4 Configuration tag with Measurement ID G-DEMO12345',
-      'Link the GA4 tag to the Page View trigger',
+      'Create a Google Tag with Tag ID DC-DEMO12345',
+      'Link the Google Tag to the Page View trigger',
     ],
     mockWebsite: 'ecommerce',
     hints: [
-      'Start by clicking the "+" button in the Tags panel to create a new tag.',
-      'The GA4 Measurement ID always starts with "G-" followed by letters/numbers.',
-      'After creating both the tag and trigger, go back to the tag and set its Firing Trigger.',
+      'Start by clicking "+" in the Triggers panel to create the trigger first.',
+      'The Google Tag is the foundation for all CM360 Floodlight tags — it must fire on every page.',
+      'The Tag ID for CM360 advertisers starts with "DC-" followed by the advertiser\'s numeric ID.',
     ],
     successCriteria: [
       {
         id: '1-1-a',
-        description: 'A GA4 Configuration tag exists',
-        check: (ws: WorkspaceState) => tagExists(ws, 'GA4Configuration'),
+        description: 'A Google Tag exists',
+        check: (ws: WorkspaceState) => tagExists(ws, 'GoogleTag'),
         failureMessage:
-          "No GA4 Configuration tag found. Create a new tag and set its type to 'GA4 Configuration'.",
+          "No Google Tag found. Create a new tag and set its type to 'Google Tag'.",
       },
       {
         id: '1-1-b',
-        description: 'GA4 tag has a valid Measurement ID (starts with G-)',
+        description: 'Google Tag has a valid Tag ID (starts with DC- or GT-)',
         check: (ws: WorkspaceState) => {
-          const tag = findTagByType(ws, 'GA4Configuration');
+          const tag = findTagByType(ws, 'GoogleTag');
           if (!tag) return false;
-          const config = tag.config as GA4ConfigurationConfig;
-          return /^G-[A-Z0-9]+$/i.test(config.measurementId || '');
+          const config = tag.config as GoogleTagConfig;
+          return /^(DC|GT)-/i.test(config.tagId || '');
         },
         failureMessage:
-          "Your GA4 tag's Measurement ID is missing or invalid. It must start with 'G-' (e.g. G-DEMO12345).",
+          "Your Google Tag's Tag ID is missing or invalid. It must start with 'DC-' (e.g. DC-DEMO12345).",
       },
       {
         id: '1-1-c',
@@ -71,43 +70,45 @@ Set up basic GA4 page view tracking by creating:
       },
       {
         id: '1-1-d',
-        description: 'GA4 Configuration tag is linked to the Page View trigger',
+        description: 'Google Tag is linked to the Page View trigger',
         check: (ws: WorkspaceState) =>
-          tagLinkedToTriggerType(ws, 'GA4Configuration', 'PageView'),
+          tagLinkedToTriggerType(ws, 'GoogleTag', 'PageView'),
         failureMessage:
-          "Your GA4 tag is not connected to the Page View trigger. Open the tag, then set its Firing Trigger to your Page View trigger.",
+          "Your Google Tag is not connected to the Page View trigger. Open the tag, then set its Firing Trigger to your Page View trigger.",
       },
     ],
   },
 
-  // ─── Challenge 1-2: Track Add-to-Cart Clicks ──────────────────────────────
+  // ─── Challenge 1-2: Track Add-to-Cart with a Floodlight Activity ──────────
   {
     id: '1-2',
     level: 1,
     index: 2,
-    title: 'Track Add-to-Cart Button Clicks',
+    title: 'Track Add-to-Cart with a Floodlight Activity',
     scenario:
-      'The same e-commerce brand wants to know how many visitors are clicking the "Add to Cart" button on product pages. You need to fire a GA4 event every time this button is clicked.',
+      'The advertiser wants to track when visitors click the "Add to Cart" button as a Floodlight conversion event in CM360. You need to create a Floodlight Activity tag that fires every time a user clicks the Add to Cart button on a product page.',
     instructions: `## Your Task
-Track clicks on the "Add to Cart" button by creating:
+Track "Add to Cart" clicks with a Floodlight Activity tag:
 
-1. **A Click Trigger**
+1. **Create a Click Trigger**
    - Trigger type: **Click**
    - Add a condition: **Click Text** → **equals** → \`Add to Cart\`
-   - This fires when the user clicks an element whose visible text is exactly "Add to Cart"
+   - This fires when the user clicks a button whose visible text is exactly "Add to Cart"
 
-2. **A GA4 Event Tag**
-   - Tag type: **GA4 Event**
-   - Event name: \`add_to_cart\`
+2. **Create a Floodlight Activity tag**
+   - Tag type: **Floodlight Activity**
+   - Advertiser ID: \`DC-12345678\`
+   - Activity Group Tag String: \`shop\`
+   - Activity Tag String: \`add_to_cart\`
    - Link it to your new Click trigger`,
     objectives: [
       'Create a Click trigger where Click Text equals "Add to Cart"',
-      'Create a GA4 Event tag with event name "add_to_cart"',
-      'Link the GA4 Event tag to the Click trigger',
+      'Create a Floodlight Activity tag with Advertiser ID DC-12345678',
+      'Link the Floodlight Activity tag to the Click trigger',
     ],
     mockWebsite: 'ecommerce',
     hints: [
-      'Click triggers fire when a user clicks on an element matching your condition.',
+      'Click triggers fire when a user clicks an element matching your condition.',
       'Use "Click Text" to target buttons by their visible label — more reliable than CSS selectors when button styling changes.',
       'Use the mock website to test: click "Add to Cart" and see if the event fires in the event log.',
     ],
@@ -136,38 +137,37 @@ Track clicks on the "Add to Cart" button by creating:
       },
       {
         id: '1-2-c',
-        description: 'A GA4 Event tag with event name "add_to_cart" exists',
-        check: (ws: WorkspaceState) =>
-          ga4EventTagWithName(ws, 'add_to_cart') !== undefined,
+        description: 'A Floodlight Activity tag exists',
+        check: (ws: WorkspaceState) => tagExists(ws, 'FloodlightActivity'),
         failureMessage:
-          "No GA4 Event tag found with event name 'add_to_cart'. Create a GA4 Event tag and set the event name to 'add_to_cart'.",
+          "No Floodlight Activity tag found. Create a tag and set its type to 'Floodlight Activity'.",
       },
       {
         id: '1-2-d',
-        description: 'GA4 Event tag is linked to the Click trigger',
+        description: 'Floodlight Activity tag is linked to the Click trigger',
         check: (ws: WorkspaceState) =>
-          tagLinkedToTriggerType(ws, 'GA4Event', 'Click'),
+          tagLinkedToTriggerType(ws, 'FloodlightActivity', 'Click'),
         failureMessage:
-          "Your GA4 Event tag is not connected to the Click trigger. Open the tag and set its Firing Trigger to your Click trigger.",
+          "Your Floodlight Activity tag is not connected to the Click trigger. Open the tag and set its Firing Trigger to your Click trigger.",
       },
     ],
   },
 
-  // ─── Challenge 1-3: Exclude Internal Traffic ──────────────────────────────
+  // ─── Challenge 1-3: Exclude Internal Traffic from the Google Tag ──────────
   {
     id: '1-3',
     level: 1,
     index: 3,
-    title: 'Exclude Internal Traffic from Analytics',
+    title: 'Exclude Internal Traffic from the Google Tag',
     scenario:
-      "The marketing team noticed that employee traffic is inflating their GA4 numbers. The dev team already pushes a data layer variable `userType` with the value `'internal'` for employees. You need to modify the tracking so GA4 only fires for external visitors.",
+      "The advertiser's analytics team noticed that employee testing is inflating their Floodlight conversion counts. The dev team already pushes a data layer variable `userType` with the value `'internal'` for employees. You need to modify the Google Tag's trigger so it only fires for external visitors.",
     instructions: `## Your Task
-Prevent internal employee traffic from being tracked:
+Prevent internal employee traffic from triggering the Google Tag:
 
 1. **Create a Data Layer Variable**
    - Type: **Data Layer Variable**
    - Variable Name (display name): \`dlv_userType\`
-   - Data Layer Variable Name field: \`userType\`
+   - **Data Layer Variable Name** field: \`userType\` (this must exactly match the key the dev team pushes)
    - Leave the **Default Value** field blank
    - The display name \`dlv_userType\` is what you'll select in trigger conditions
 
@@ -176,17 +176,18 @@ Prevent internal employee traffic from being tracked:
    - Add a condition: **dlv_userType** → **does not equal** → \`internal\`
    - This trigger only fires when the user is NOT an employee
 
-3. **Update your GA4 Configuration tag**
+3. **Update the Google Tag's firing trigger**
+   - Open the Google Tag you created in Challenge 1-1
    - Change its Firing Trigger to the new conditional trigger (not "All Pages")`,
     objectives: [
-      'Create a Data Layer Variable named "userType"',
+      'Create a Data Layer Variable named "dlv_userType" that reads the "userType" key',
       'Create a Page View trigger that excludes userType = "internal"',
-      'Link the GA4 Configuration tag to the new conditional trigger',
+      'Link the Google Tag to the new conditional trigger',
     ],
     mockWebsite: 'ecommerce',
     hints: [
       'Data Layer Variables read values your developers push via window.dataLayer.push()',
-      'The variable name must exactly match what the dev team pushes: "userType"',
+      'The Data Layer Variable Name field must exactly match what the dev team pushes: "userType"',
       'Use "does not equal" to EXCLUDE something — "equals" would do the opposite!',
     ],
     successCriteria: [
@@ -201,7 +202,7 @@ Prevent internal employee traffic from being tracked:
           );
         },
         failureMessage:
-          "No Data Layer Variable for 'userType' found. Create a variable with type 'Data Layer Variable' and variable name 'userType'.",
+          "No Data Layer Variable for 'userType' found. Create a variable with type 'Data Layer Variable' and set the Data Layer Variable Name field to 'userType'.",
       },
       {
         id: '1-3-b',
@@ -218,27 +219,29 @@ Prevent internal employee traffic from being tracked:
           );
         },
         failureMessage:
-          "No conditional Page View trigger found. Create a Page View trigger with a condition: [your userType variable] → does not equal → internal",
+          "No conditional Page View trigger found. Create a Page View trigger with a condition: dlv_userType → does not equal → internal",
       },
       {
         id: '1-3-c',
-        description: 'GA4 Configuration tag is linked to the conditional trigger',
+        description: 'Google Tag is linked to the conditional trigger',
         check: (ws: WorkspaceState) => {
-          const ga4Tag = findTagByType(ws, 'GA4Configuration');
-          if (!ga4Tag) return false;
-          const trigger = ws.triggers.find((t) => t.id === ga4Tag.firingTriggerId);
-          if (!trigger) return false;
-          return (
-            trigger.type === 'PageView' &&
-            trigger.conditions.some(
-              (c) =>
-                c.operator === 'doesNotEqual' &&
-                c.value.toLowerCase() === 'internal'
-            )
-          );
+          const googleTags = findTagsByType(ws, 'GoogleTag');
+          if (googleTags.length === 0) return false;
+          return googleTags.some((tag) => {
+            const trigger = ws.triggers.find((t) => t.id === tag.firingTriggerId);
+            if (!trigger) return false;
+            return (
+              trigger.type === 'PageView' &&
+              trigger.conditions.some(
+                (c) =>
+                  c.operator === 'doesNotEqual' &&
+                  c.value.toLowerCase() === 'internal'
+              )
+            );
+          });
         },
         failureMessage:
-          "Your GA4 tag is not connected to the conditional trigger. Update its Firing Trigger to use the new Page View trigger (not 'All Pages').",
+          "Your Google Tag is not connected to the conditional trigger. Open the Google Tag and update its Firing Trigger to the new Page View trigger (not 'All Pages').",
       },
     ],
   },

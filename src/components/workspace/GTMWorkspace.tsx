@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tag, Trigger, Variable, GA4ConfigurationConfig, GA4EventConfig, GoogleAdsConversionConfig, DataLayerVariableConfig, DOMElementVariableConfig, ConstantVariableConfig } from '@/lib/types/gtm';
+import { Tag, Trigger, Variable, GA4ConfigurationConfig, GA4EventConfig, GoogleAdsConversionConfig, DataLayerVariableConfig, DOMElementVariableConfig, ConstantVariableConfig, GoogleTagConfig, FloodlightActivityConfig } from '@/lib/types/gtm';
 import { useWorkspaceStore } from '@/lib/store/workspaceStore';
 import { TagForm } from './TagForm';
 import { TriggerForm } from './TriggerForm';
@@ -14,6 +14,8 @@ import { VariableForm } from './VariableForm';
 import { Plus, Tag as TagIcon, Zap, Variable as VarIcon, Pencil, Trash2, ChevronRight } from 'lucide-react';
 
 const TAG_TYPE_SHORT: Record<string, string> = {
+  GoogleTag: 'Google Tag',
+  FloodlightActivity: 'Floodlight',
   GA4Configuration: 'GA4 Config',
   GA4Event: 'GA4 Event',
   GoogleAdsConversion: 'Google Ads',
@@ -280,6 +282,7 @@ export function GTMWorkspace() {
           {(modal.mode === 'addTag' || modal.mode === 'editTag') && (
             <TagForm
               triggers={triggers}
+              tags={tags}
               existingTag={modal.mode === 'editTag' ? modal.tag : undefined}
               onSave={handleSaveTag}
               onCancel={closeModal}

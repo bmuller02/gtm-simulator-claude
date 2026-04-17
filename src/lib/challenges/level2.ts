@@ -32,7 +32,8 @@ Track form submissions and capture the email address:
 3. **Create a GA4 Event Tag**
    - Type: **GA4 Event**
    - Event name: \`form_submission\`
-   - Add a custom dimension: key \`email\`, value → type the name of your DOM variable (e.g. \`DOM - Email Input Value\`)
+   - Add a custom dimension: key \`email\`, value → type the name of your DOM variable exactly (e.g. \`DOM - Email Input Value\`)
+   - Note: do NOT wrap the variable name in curly brackets here — just type the name as-is
    - Link it to your Form Submission trigger`,
     objectives: [
       'Create a DOM Element variable targeting input[name="email"] with attribute "value"',
@@ -127,7 +128,7 @@ Set up purchase conversion tracking:
    - Type: **Custom Event**
    - **Custom Event Name** field: \`purchase\`
    - No additional conditions are needed — the event name field IS the condition
-   - This fires when developers push \`{ event: 'purchase' }\` to the data layer
+   - This fires whenever \`{ event: 'purchase' }\` surfaces in the data layer
 
 3. **Create a GA4 Event Tag**
    - Type: **GA4 Event**
@@ -233,7 +234,7 @@ Set up Google Ads conversion tracking with proper tag sequencing:
    - Type: **Google Ads Conversion**
    - Conversion ID: \`AW-DEMO9876\`
    - Conversion Label: \`abc123XYZ\`
-   - Set **Setup Tag** (fires before this tag) → select your Conversion Linker tag
+   - Under **Advanced Settings → Tag Sequencing**, check **"Fire a tag before this tag fires"** and select your Conversion Linker tag
    - Link it to the same thank-you page trigger`,
     objectives: [
       'Create a Page View trigger that fires only on the /thank-you page',
@@ -243,8 +244,8 @@ Set up Google Ads conversion tracking with proper tag sequencing:
     mockWebsite: 'checkout',
     hints: [
       'Tag sequencing lets you guarantee one tag fires before another — critical for conversion tracking.',
-      'The Conversion Linker must always fire before Google Ads tags on the same page.',
-      'The "Setup Tag" field in Google Ads tags is how you configure the firing order in GTM.',
+      'The Conversion Linker should always fire before any Google conversion tags on the same page.',
+      'Firing order is configured in GTM under the "Advanced Settings → Tag Sequencing" section of any tag, where a tag can either be set to fire before or after a specified tag.',
     ],
     successCriteria: [
       {
@@ -317,6 +318,18 @@ Set up Google Ads conversion tracking with proper tag sequencing:
         },
         failureMessage:
           "Your Conversion Linker tag is not linked to the /thank-you trigger. It needs to fire on the same page as the Google Ads tag.",
+      },
+      {
+        id: '2-3-f',
+        description: 'Google Ads Conversion tag has Conversion Linker set to fire before it',
+        check: (ws: WorkspaceState) => {
+          const adsTag = findTagByType(ws, 'GoogleAdsConversion');
+          if (!adsTag || !adsTag.setupTagId) return false;
+          const setupTag = ws.tags.find((t) => t.id === adsTag.setupTagId);
+          return setupTag?.type === 'ConversionLinker';
+        },
+        failureMessage:
+          "Your Google Ads Conversion tag does not have the Conversion Linker configured to fire before it. In the tag's Advanced Settings → Tag Sequencing, check 'Fire a tag before this tag fires' and select your Conversion Linker tag.",
       },
     ],
   },

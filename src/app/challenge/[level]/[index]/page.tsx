@@ -22,6 +22,104 @@ import {
   Trophy, MousePointerClick
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { WorkspaceState, Trigger, Tag, Variable, DataLayerVariableConfig } from '@/lib/types/gtm';
+
+// ── Tag firing simulation ─────────────────────────────────────────────────────
+
+function resolveVariableValue(
+  variableName: string,
+  eventData: Record<string, unknown>,
+  variables: Variable[]
+): string {
+  // Check if variableName matches a data layer variable's display name
+  const dlVar = variables.find(
+    (v) => v.type === 'DataLayer' && v.name.toLowerCase() === variableName.toLowerCase()
+  );
+  if (dlVar) {
+    const key = (dlVar.config as DataLayerVariableConfig).dataLayerVariableName;
+    return String(eventData[key] ?? '');
+  }
+  // Built-in GTM variable names
+  const lower = variableName.toLowerCase();
+  if (lower.includes('page url') || lower.includes('page_url')) {
+    return `https://preview.site${eventData.page_path || '/'}`;
+  }
+  if (lower.includes('page path') || lower.includes('page_path')) {
+    return String(eventData.page_path || '/');
+  }
+  if (lower.includes('click text')) {
+    // For add_to_cart events the click text is the button label
+    return eventData.click_text ? String(eventData.click_text) : 'Add to Cart';
+  }
+  // Fall back to checking eventData directly by the variable name
+  return String(eventData[variableName] ?? eventData[lower] ?? '');
+}
+
+function evaluateCondition(actual: string, operator: string, expected: string): boolean {
+  const a = actual.toLowerCase();
+  const e = expected.toLowerCase();
+  switch (operator) {
+    case 'equals': return a === e;
+    case 'doesNotEqual': return a !== e;
+    case 'contains': return a.includes(e);
+    case 'doesNotContain': return !a.includes(e);
+    case 'startsWith': return a.startsWith(e);
+    case 'greaterThan': return parseFloat(actual) > parseFloat(expected);
+    case 'lessThan': return parseFloat(actual) < parseFloat(expected);
+    default: return false;
+  }
+}
+
+function triggerFires(
+  trigger: Trigger,
+  eventName: string,
+  eventData: Record<string, unknown>,
+  variables: Variable[]
+): boolean {
+  // Map event names to trigger types
+  const pageViewEvents = ['page_view'];
+  const clickEvents = ['add_to_cart'];
+  const formEvents = ['form_submission'];
+
+  switch (trigger.type) {
+    case 'PageView':
+      if (!pageViewEvents.includes(eventName)) return false;
+      break;
+    case 'Click':
+      if (!clickEvents.includes(eventName)) return false;
+      break;
+    case 'FormSubmission':
+      if (!formEvents.includes(eventName)) return false;
+      break;
+    case 'CustomEvent':
+      if (trigger.customEventName?.toLowerCase() !== eventName.toLowerCase()) return false;
+      break;
+    default:
+      return false;
+  }
+
+  // Evaluate all conditions
+  for (const condition of trigger.conditions) {
+    const actual = resolveVariableValue(condition.variable, eventData, variables);
+    if (!evaluateCondition(actual, condition.operator, condition.value)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function simulateFiredTags(
+  workspace: WorkspaceState,
+  eventName: string,
+  eventData: Record<string, unknown>
+): Tag[] {
+  return workspace.tags.filter((tag) => {
+    if (!tag.firingTriggerId) return false;
+    const trigger = workspace.triggers.find((t) => t.id === tag.firingTriggerId);
+    if (!trigger) return false;
+    return triggerFires(trigger, eventName, eventData, workspace.variables);
+  });
+}
 
 // Events that must be fired on the preview site before advancing (per challenge)
 const REQUIRED_EVENTS: Record<string, string> = {
@@ -310,13 +408,26 @@ export default function ChallengePage({ params }: PageProps) {
               eventLogHeight={eventLogHeight}
               onEventLogHeightChange={setEventLogHeight}
               onEvent={(name, data) => {
+                const ts = Date.now();
                 const entry: EventLogEntry = {
-                  id: `${Date.now()}-${Math.random()}`,
-                  timestamp: Date.now(),
+                  id: `${ts}-${Math.random()}`,
+                  timestamp: ts,
                   name,
                   data: data ?? {},
+                  type: 'dlEvent',
                 };
-                setFiredEvents((prev) => [entry, ...prev].slice(0, 50));
+                // Simulate which tags fire based on current workspace
+                const workspace = getSnapshot();
+                const firedTags = simulateFiredTags(workspace, name, data ?? {});
+                const tagEntries: EventLogEntry[] = firedTags.map((tag) => ({
+                  id: `${ts}-tag-${tag.id}`,
+                  timestamp: ts,
+                  name: tag.name,
+                  data: {},
+                  type: 'tagFired' as const,
+                  tagType: tag.type,
+                }));
+                setFiredEvents((prev) => [...tagEntries, entry, ...prev].slice(0, 100));
               }}
             />
           </div>

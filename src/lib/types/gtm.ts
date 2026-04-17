@@ -5,7 +5,9 @@ export type TagType =
   | 'GA4Event'
   | 'GoogleAdsConversion'
   | 'ConversionLinker'
-  | 'CustomHTML';
+  | 'CustomHTML'
+  | 'GoogleTag'
+  | 'FloodlightActivity';
 
 export interface Tag {
   id: string;
@@ -14,6 +16,8 @@ export interface Tag {
   enabled: boolean;
   firingTriggerId: string; // trigger ID that fires this tag
   blockingTriggerId?: string; // trigger that prevents firing
+  setupTagId?: string;     // tag that fires BEFORE this tag (tag sequencing)
+  teardownTagId?: string;  // tag that fires AFTER this tag (tag sequencing)
   config: TagConfig;
 }
 
@@ -46,12 +50,25 @@ export interface CustomHTMLConfig {
   html: string;
 }
 
+export interface GoogleTagConfig {
+  tagId: string; // e.g. "DC-XXXXXXXXX" or "GT-XXXXXXXXX"
+}
+
+export interface FloodlightActivityConfig {
+  advertiserId: string;     // e.g. "DC-12345678"
+  groupTagString: string;   // activity group tag string
+  activityTagString: string; // activity tag string
+  countingMethod?: 'standard' | 'unique' | 'per_session';
+}
+
 export type TagConfig =
   | GA4ConfigurationConfig
   | GA4EventConfig
   | GoogleAdsConversionConfig
   | ConversionLinkerConfig
-  | CustomHTMLConfig;
+  | CustomHTMLConfig
+  | GoogleTagConfig
+  | FloodlightActivityConfig;
 
 // ============ TRIGGER TYPES ============
 

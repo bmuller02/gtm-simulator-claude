@@ -85,17 +85,17 @@ const QUESTIONS: QuizQuestion[] = [
   },
   {
     id: 'q5',
-    type: 'single',
-    question: 'You need to track Google Ads conversions on a thank-you page. The Conversion Linker tag must fire before the Google Ads Conversion tag. How do you configure this in GTM?',
+    type: 'multi',
+    question: 'You need to track Google Ads conversions on a thank-you page. The Conversion Linker tag must fire before the Google Ads Conversion tag. How do you configure this in GTM? Two correct answers.',
     options: [
       { id: 'a', text: 'Give the Conversion Linker a higher priority number in the tag settings' },
-      { id: 'b', text: 'Set the Conversion Linker as the "Setup Tag" inside the Google Ads Conversion tag' },
-      { id: 'c', text: 'Set the Google Ads Conversion tag as the "Setup Tag" inside the Conversion Linker' },
+      { id: 'b', text: 'Set the Conversion Linker as the tag associated to the "Fire a tag before this tag fires" setting in the Google Ads Tag Sequencing section' },
+      { id: 'c', text: 'Set the Google Ads Conversion tag as the "Fire a tag before this tag fires" tag inside the Conversion Linker' },
       { id: 'd', text: 'Both tags fire at the same time — GTM handles the order automatically' },
     ],
-    correctIds: ['b'],
+    correctIds: ['a', 'b'],
     explanation:
-      'Tag sequencing in GTM uses the "Setup Tag" field. A tag\'s Setup Tag fires first, before the parent tag. So to make the Conversion Linker fire before the Google Ads tag, open the Google Ads Conversion tag and set its Setup Tag to the Conversion Linker — not the other way around.',
+      'There are two valid ways to ensure the Conversion Linker fires before the Google Ads tag: (1) Tag Sequencing — open the Google Ads Conversion tag, go to Advanced Settings → Tag Sequencing, check "Fire a tag before this tag fires", and select the Conversion Linker. (2) Tag Priority — give the Conversion Linker a higher priority number in its tag settings. When two tags share the same trigger, GTM fires the higher-priority tag first.',
   },
   {
     id: 'q6',

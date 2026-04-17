@@ -124,16 +124,18 @@ Implement consent-based tag firing:
         id: '3-1-e',
         description: 'GA4 Configuration tag linked to analytics consent trigger',
         check: (ws: WorkspaceState) => {
-          const ga4 = findTagByType(ws, 'GA4Configuration');
-          if (!ga4) return false;
-          const trigger = ws.triggers.find((t) => t.id === ga4.firingTriggerId);
-          if (!trigger) return false;
-          return trigger.conditions.some(
-            (c) =>
-              c.variable.toLowerCase().includes('analytics') &&
-              c.operator === 'equals' &&
-              c.value.toLowerCase() === 'granted'
-          );
+          const ga4Tags = findTagsByType(ws, 'GA4Configuration');
+          if (ga4Tags.length === 0) return false;
+          return ga4Tags.some((ga4) => {
+            const trigger = ws.triggers.find((t) => t.id === ga4.firingTriggerId);
+            if (!trigger) return false;
+            return trigger.conditions.some(
+              (c) =>
+                c.variable.toLowerCase().includes('analytics') &&
+                c.operator === 'equals' &&
+                c.value.toLowerCase() === 'granted'
+            );
+          });
         },
         failureMessage:
           "Your GA4 tag is not linked to the analytics consent trigger. Make sure it fires only when analytics_consent = 'granted'.",
@@ -142,16 +144,18 @@ Implement consent-based tag firing:
         id: '3-1-f',
         description: 'Google Ads Conversion tag linked to ads consent trigger',
         check: (ws: WorkspaceState) => {
-          const adsTag = findTagByType(ws, 'GoogleAdsConversion');
-          if (!adsTag) return false;
-          const trigger = ws.triggers.find((t) => t.id === adsTag.firingTriggerId);
-          if (!trigger) return false;
-          return trigger.conditions.some(
-            (c) =>
-              c.variable.toLowerCase().includes('ads') &&
-              c.operator === 'equals' &&
-              c.value.toLowerCase() === 'granted'
-          );
+          const adsTags = findTagsByType(ws, 'GoogleAdsConversion');
+          if (adsTags.length === 0) return false;
+          return adsTags.some((adsTag) => {
+            const trigger = ws.triggers.find((t) => t.id === adsTag.firingTriggerId);
+            if (!trigger) return false;
+            return trigger.conditions.some(
+              (c) =>
+                c.variable.toLowerCase().includes('ads') &&
+                c.operator === 'equals' &&
+                c.value.toLowerCase() === 'granted'
+            );
+          });
         },
         failureMessage:
           "Your Google Ads tag is not linked to the ads consent trigger. Make sure it fires only when ads_consent = 'granted'.",
@@ -172,8 +176,8 @@ Find and fix the two bugs in this pre-loaded workspace:
 
 **Bug #1 — Wrong variable name**
 - Look at the Page View trigger conditions
-- The condition references \`dlv_usr_Type\` but the data layer actually uses \`userType\`
-- Fix: change the condition variable to reference \`userType\`
+- The condition references \`dlv_usr_Type\` but the data layer variable is named \`dlv_userType\`
+- Fix: change the condition variable to reference \`dlv_userType\`
 
 **Bug #2 — Wrong custom event name**
 - Look at the Custom Event trigger
@@ -294,7 +298,7 @@ Set up multi-channel event tracking across 3 sources:
    - Variable Name (display name): *"dlv_channel"*
    - **Data Layer Variable Name** field: \`channel\`
    - Leave Default Value blank
-   - Devs push this with every interaction (e.g. \`{ channel: 'paid_search' }\`)
+   - Devs have coded the data layer to surface this channel variable with every event (e.g. \`{ channel: 'paid_search' }\`)
 
 2. **Create 3 Custom Event Triggers** (one per channel)
    - Trigger A — Name: *"Custom Event - Paid Search"*, **Custom Event Name** field: \`paid_search_click\`
@@ -306,19 +310,15 @@ Set up multi-channel event tracking across 3 sources:
    - Add a custom dimension: key \`channel\`, value → \`dlv_channel\`
    - Set Firing Trigger to any one of your three channel triggers (we validate all three triggers exist separately)
 
-4. **Create one more Custom Event Trigger** for the conversion
-   - Name: *"Custom Event - Purchase"*
-   - **Custom Event Name** field: \`purchase\`
-
-5. **Create a GA4 Event Tag for the conversion**
-   - Event name: \`purchase\`
-   - Add a custom dimension: key \`channel\`, value → \`dlv_channel\` (last-touch attribution)
-   - Firing Trigger: select your *"Custom Event - Purchase"* trigger`,
+4. **Revise the existing GA4 Event Tag for the Purchase event**
+   - Find the existing purchase GA4 Event tag in your workspace (carried over from a prior challenge)
+   - Open it and add an additional custom dimension: key \`channel\`, value → \`dlv_channel\` (last-touch attribution)
+   - Save the updated tag`,
     objectives: [
       'Create a Data Layer Variable for "channel"',
       'Create 3 Custom Event triggers (paid_search_click, social_click, email_click)',
       'Create a GA4 Event tag for channel_interaction with custom dimension "channel"',
-      'Create a Custom Event trigger for "purchase" and a GA4 Event tag linked to it',
+      'Revise the existing GA4 Event tag for "purchase" to add the "channel" custom dimension',
     ],
     mockWebsite: 'marketing',
     hints: [

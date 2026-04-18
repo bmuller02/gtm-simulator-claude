@@ -407,6 +407,7 @@ export default function ChallengePage({ params }: PageProps) {
               type={challenge.mockWebsite}
               eventLogHeight={eventLogHeight}
               onEventLogHeightChange={setEventLogHeight}
+              externalLog={firedEvents}
               onEvent={(name, data) => {
                 const ts = Date.now();
                 const entry: EventLogEntry = {

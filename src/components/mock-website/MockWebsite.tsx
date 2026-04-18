@@ -19,10 +19,12 @@ interface MockWebsiteProps {
   onEventLogHeightChange?: (height: number) => void;
   /** Optional external event listener (used by challenge page to detect fired events) */
   onEvent?: (name: string, data?: Record<string, unknown>) => void;
+  /** If provided, shown in the EventLog instead of local state (allows tag-fired entries from parent) */
+  externalLog?: EventLogEntry[];
 }
 
-export function MockWebsite({ type, eventLogHeight = 130, onEventLogHeightChange, onEvent }: MockWebsiteProps) {
-  const [events, setEvents] = useState<EventLogEntry[]>([]);
+export function MockWebsite({ type, eventLogHeight = 130, onEventLogHeightChange, onEvent, externalLog }: MockWebsiteProps) {
+  const [localEvents, setLocalEvents] = useState<EventLogEntry[]>([]);
   const isDragging = useRef(false);
   const dragStartY = useRef(0);
   const dragStartHeight = useRef(eventLogHeight);
@@ -34,7 +36,7 @@ export function MockWebsite({ type, eventLogHeight = 130, onEventLogHeightChange
       name,
       data,
     };
-    setEvents((prev) => [entry, ...prev].slice(0, 20));
+    setLocalEvents((prev) => [entry, ...prev].slice(0, 20));
     onEvent?.(name, data);
   };
 
@@ -112,7 +114,7 @@ export function MockWebsite({ type, eventLogHeight = 130, onEventLogHeightChange
       </div>
 
       {/* Event log */}
-      <EventLog events={events} height={eventLogHeight} />
+      <EventLog events={externalLog ?? localEvents} height={eventLogHeight} />
     </div>
   );
 }

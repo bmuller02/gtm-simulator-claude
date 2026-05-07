@@ -23,6 +23,8 @@
 # misc
 .DS_Store
 *.pem
+working notes.md
+v2_wireframes
 
 # debug
 npm-debug.log*

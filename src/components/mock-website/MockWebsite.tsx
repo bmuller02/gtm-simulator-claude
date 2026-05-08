@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { MockWebsiteType } from '@/lib/types/challenge';
 import { MockEcommerce } from './MockEcommerce';
 import { MockContactForm } from './MockContactForm';
@@ -8,26 +8,64 @@ import { MockCheckout } from './MockCheckout';
 import { MockCookieBanner } from './MockCookieBanner';
 import { MockMarketing } from './MockMarketing';
 import { EventLog, EventLogEntry } from './EventLog';
-import { Badge } from '@/components/ui/badge';
-import { Monitor } from 'lucide-react';
 
 interface MockWebsiteProps {
   type: MockWebsiteType;
-  /** Height in px of the event log panel. Default 130. */
-  eventLogHeight?: number;
-  /** Called when user drags the event log resize handle */
-  onEventLogHeightChange?: (height: number) => void;
-  /** Optional external event listener (used by challenge page to detect fired events) */
   onEvent?: (name: string, data?: Record<string, unknown>) => void;
-  /** If provided, shown in the EventLog instead of local state (allows tag-fired entries from parent) */
   externalLog?: EventLogEntry[];
 }
 
-export function MockWebsite({ type, eventLogHeight = 130, onEventLogHeightChange, onEvent, externalLog }: MockWebsiteProps) {
+export function MockWebsite({ type, onEvent, externalLog }: MockWebsiteProps) {
   const [localEvents, setLocalEvents] = useState<EventLogEntry[]>([]);
+  const [debuggerOpen, setDebuggerOpen] = useState(true);
+
+  // Drag state: null = default bottom-right corner
+  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
   const isDragging = useRef(false);
-  const dragStartY = useRef(0);
-  const dragStartHeight = useRef(eventLogHeight);
+  const dragOffset = useRef({ x: 0, y: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleMove = (e: MouseEvent) => {
+      if (!isDragging.current || !containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      setDragPos({
+        x: Math.max(0, e.clientX - rect.left - dragOffset.current.x),
+        y: Math.max(0, e.clientY - rect.top - dragOffset.current.y),
+      });
+    };
+    const handleUp = () => {
+      isDragging.current = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    document.addEventListener('mousemove', handleMove);
+    document.addEventListener('mouseup', handleUp);
+    return () => {
+      document.removeEventListener('mousemove', handleMove);
+      document.removeEventListener('mouseup', handleUp);
+    };
+  }, []);
+
+  const handleHeaderMouseDown = (e: React.MouseEvent) => {
+    if (!panelRef.current || !containerRef.current) return;
+    e.preventDefault();
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const panelRect = panelRef.current.getBoundingClientRect();
+    isDragging.current = true;
+    dragOffset.current = {
+      x: e.clientX - panelRect.left,
+      y: e.clientY - panelRect.top,
+    };
+    // Anchor current position so it doesn't jump
+    setDragPos({
+      x: panelRect.left - containerRect.left,
+      y: panelRect.top - containerRect.top,
+    });
+    document.body.style.cursor = 'grabbing';
+    document.body.style.userSelect = 'none';
+  };
 
   const fireEvent = (name: string, data: Record<string, unknown> = {}) => {
     const entry: EventLogEntry = {
@@ -36,33 +74,8 @@ export function MockWebsite({ type, eventLogHeight = 130, onEventLogHeightChange
       name,
       data,
     };
-    setLocalEvents((prev) => [entry, ...prev].slice(0, 20));
+    setLocalEvents((prev) => [entry, ...prev].slice(0, 50));
     onEvent?.(name, data);
-  };
-
-  const handleResizeMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    isDragging.current = true;
-    dragStartY.current = e.clientY;
-    dragStartHeight.current = eventLogHeight;
-    document.body.style.cursor = 'row-resize';
-    document.body.style.userSelect = 'none';
-
-    const onMouseMove = (ev: MouseEvent) => {
-      if (!isDragging.current) return;
-      const delta = dragStartY.current - ev.clientY;
-      const newHeight = Math.max(60, Math.min(400, dragStartHeight.current + delta));
-      onEventLogHeightChange?.(newHeight);
-    };
-    const onMouseUp = () => {
-      isDragging.current = false;
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-    };
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
   };
 
   const siteContent = (() => {
@@ -81,40 +94,61 @@ export function MockWebsite({ type, eventLogHeight = 130, onEventLogHeightChange
     type === 'cookieBanner' ? 'https://demo-eu.example.com' :
     'https://demo-agency.example.com';
 
+  const events = externalLog ?? localEvents;
+
+  const floatStyle: React.CSSProperties = dragPos
+    ? { top: dragPos.y, left: dragPos.x }
+    : { bottom: '16px', right: '16px' };
+
   return (
-    <div className="flex flex-col h-full">
-      {/* Browser chrome + site content */}
-      <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-white">
-        <div className="bg-gray-100 border-b px-3 py-2 flex items-center gap-2 shrink-0">
-          <div className="flex gap-1.5">
-            <div className="w-2.5 h-2.5 rounded-full bg-red-400" />
-            <div className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
-            <div className="w-2.5 h-2.5 rounded-full bg-green-400" />
-          </div>
-          <div className="flex-1 bg-white rounded border px-2 py-0.5 text-xs text-gray-500 font-mono truncate">
-            {url}
-          </div>
-          <Badge variant="outline" className="text-xs font-normal py-0">
-            <Monitor className="h-2.5 w-2.5 mr-1" />
-            Preview
-          </Badge>
-        </div>
-        <div className="flex-1 overflow-y-auto min-h-0">
-          {siteContent}
-        </div>
-      </div>
-
-      {/* Drag handle to resize event log */}
+    <div ref={containerRef} className="flex flex-col h-full relative overflow-hidden">
+      {/* Browser chrome */}
       <div
-        className="h-1.5 shrink-0 cursor-row-resize bg-gray-200 hover:bg-blue-400 transition-colors flex items-center justify-center"
-        onMouseDown={handleResizeMouseDown}
-        title="Drag to resize event log"
+        className="shrink-0 flex items-center gap-2 px-3 py-2"
+        style={{ background: '#f3efe7', borderBottom: '1px solid #c9c5be' }}
       >
-        <div className="w-8 h-0.5 rounded-full bg-gray-400" />
+        <div className="flex gap-1.5">
+          <div className="w-2.5 h-2.5 rounded-full" style={{ background: '#ff5f57' }} />
+          <div className="w-2.5 h-2.5 rounded-full" style={{ background: '#febc2e' }} />
+          <div className="w-2.5 h-2.5 rounded-full" style={{ background: '#28c840' }} />
+        </div>
+        <div
+          className="flex-1 rounded px-2 py-0.5 text-xs font-mono truncate"
+          style={{ background: '#ffffff', border: '1px solid #c9c5be', color: '#6b7280' }}
+        >
+          {url}
+        </div>
+        <button
+          onClick={() => setDebuggerOpen((o) => !o)}
+          className="shrink-0 text-xs px-2 py-0.5 rounded transition-colors"
+          style={{
+            border: '1px solid #c9c5be',
+            background: debuggerOpen ? '#1a1d24' : '#ffffff',
+            color: debuggerOpen ? '#9ca3af' : '#6b7280',
+          }}
+        >
+          {debuggerOpen ? 'Hide Debugger' : 'Show Debugger'}
+        </button>
       </div>
 
-      {/* Event log */}
-      <EventLog events={externalLog ?? localEvents} height={eventLogHeight} />
+      {/* Site content */}
+      <div className="flex-1 overflow-y-auto min-h-0 bg-white">
+        {siteContent}
+      </div>
+
+      {/* Floating debugger overlay */}
+      {debuggerOpen && (
+        <div ref={panelRef} className="absolute z-20" style={floatStyle}>
+          <EventLog
+            events={events}
+            onClose={() => {
+              setDebuggerOpen(false);
+              setDragPos(null);
+            }}
+            onHeaderMouseDown={handleHeaderMouseDown}
+          />
+        </div>
+      )}
     </div>
   );
 }

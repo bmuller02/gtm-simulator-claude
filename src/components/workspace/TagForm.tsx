@@ -5,14 +5,12 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Separator } from '@/components/ui/separator';
 import { Tag, TagType, Trigger } from '@/lib/types/gtm';
-import { X, Plus, Trash2, Tag as TagIcon } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
+import { Section, FieldRow } from './BuilderShared';
 
 const tagSchema = z.object({
   name: z.string().min(1, 'Tag name is required'),
@@ -41,24 +39,55 @@ interface CustomDimensionRow {
 }
 
 interface TagFormProps {
+  formId: string;
   triggers: Trigger[];
   tags?: Tag[];
   existingTag?: Tag;
   onSave: (tag: Tag) => void;
-  onCancel: () => void;
+  onTypeChange?: (type: TagType) => void;
 }
 
-const TAG_TYPE_LABELS: Record<TagType, string> = {
+export const TAG_TYPE_LABELS: Record<TagType, string> = {
   GoogleTag: 'Google Tag',
   FloodlightActivity: 'Floodlight Activity',
-  GA4Configuration: 'Google Analytics 4 - Configuration',
-  GA4Event: 'Google Analytics 4 - Event',
-  GoogleAdsConversion: 'Google Ads - Conversion Tracking',
+  GA4Configuration: 'GA4 Configuration',
+  GA4Event: 'GA4 Event',
+  GoogleAdsConversion: 'Google Ads Conversion',
   ConversionLinker: 'Conversion Linker',
   CustomHTML: 'Custom HTML',
 };
 
-export function TagForm({ triggers, tags = [], existingTag, onSave, onCancel }: TagFormProps) {
+const TAG_TYPE_ABBREV: Record<TagType, string> = {
+  GoogleTag: 'GT',
+  FloodlightActivity: 'FL',
+  GA4Configuration: 'GA',
+  GA4Event: 'GA',
+  GoogleAdsConversion: 'AW',
+  ConversionLinker: 'CL',
+  CustomHTML: '<>',
+};
+
+const TAG_TYPE_DESCRIPTION: Record<TagType, string> = {
+  GoogleTag: 'Google Tag · Site configuration',
+  FloodlightActivity: 'Campaign Manager 360 · Conversion tracking',
+  GA4Configuration: 'Google Analytics 4 · Configuration',
+  GA4Event: 'Google Analytics 4 · Event tracking',
+  GoogleAdsConversion: 'Google Ads · Conversion tracking',
+  ConversionLinker: 'Google Ads · Cross-domain linking',
+  CustomHTML: 'Custom · HTML/JavaScript',
+};
+
+const TAG_TYPE_COLOR: Record<TagType, string> = {
+  GoogleTag: '#1a73e8',
+  FloodlightActivity: '#1a8a6e',
+  GA4Configuration: '#e8711a',
+  GA4Event: '#e8a41a',
+  GoogleAdsConversion: '#1a65e8',
+  ConversionLinker: '#3d7be8',
+  CustomHTML: '#4b5563',
+};
+
+export function TagForm({ formId, triggers, tags = [], existingTag, onSave, onTypeChange }: TagFormProps) {
   const [customDimensions, setCustomDimensions] = useState<CustomDimensionRow[]>(
     existingTag?.type === 'GA4Event' && (existingTag.config as any).customDimensions
       ? Object.entries((existingTag.config as any).customDimensions).map(([key, value]) => ({
@@ -67,9 +96,9 @@ export function TagForm({ triggers, tags = [], existingTag, onSave, onCancel }: 
         }))
       : []
   );
-
   const [fireBeforeEnabled, setFireBeforeEnabled] = useState(!!existingTag?.setupTagId);
   const [fireAfterEnabled, setFireAfterEnabled] = useState(!!existingTag?.teardownTagId);
+  const [showTypeSelector, setShowTypeSelector] = useState(false);
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<TagFormData>({
     resolver: zodResolver(tagSchema),
@@ -95,14 +124,20 @@ export function TagForm({ triggers, tags = [], existingTag, onSave, onCancel }: 
       : { type: 'GoogleTag', sendPageView: true, floodlightCountingMethod: 'standard' },
   });
 
-  const selectedType = watch('type');
+  const selectedType = watch('type') as TagType;
   const firingTriggerId = watch('firingTriggerId');
   const setupTagIdVal = watch('setupTagId');
   const teardownTagIdVal = watch('teardownTagId');
+  const otherTags = tags.filter((t) => t.id !== existingTag?.id);
+
+  const handleTypeChange = (val: TagType) => {
+    setValue('type', val);
+    setShowTypeSelector(false);
+    onTypeChange?.(val);
+  };
 
   const onSubmit = (data: TagFormData) => {
     let config: any = {};
-
     switch (data.type) {
       case 'GoogleTag':
         config = { tagId: data.googleTagId || '' };
@@ -138,7 +173,7 @@ export function TagForm({ triggers, tags = [], existingTag, onSave, onCancel }: 
         break;
     }
 
-    const tag: Tag = {
+    onSave({
       id: existingTag?.id || uuidv4(),
       name: data.name,
       type: data.type,
@@ -147,9 +182,7 @@ export function TagForm({ triggers, tags = [], existingTag, onSave, onCancel }: 
       config,
       ...(fireBeforeEnabled && setupTagIdVal ? { setupTagId: setupTagIdVal } : {}),
       ...(fireAfterEnabled && teardownTagIdVal ? { teardownTagId: teardownTagIdVal } : {}),
-    };
-
-    onSave(tag);
+    });
   };
 
   const addDimension = () => setCustomDimensions([...customDimensions, { key: '', value: '' }]);
@@ -158,331 +191,346 @@ export function TagForm({ triggers, tags = [], existingTag, onSave, onCancel }: 
     setCustomDimensions(customDimensions.map((d, idx) => (idx === i ? { ...d, [field]: val } : d)));
   };
 
-  // GTM-style type icon colors
-  const typeColor: Record<string, string> = {
-    GoogleTag: 'bg-blue-700',
-    FloodlightActivity: 'bg-teal-600',
-    GA4Configuration: 'bg-orange-500',
-    GA4Event: 'bg-orange-400',
-    GoogleAdsConversion: 'bg-blue-500',
-    ConversionLinker: 'bg-blue-400',
-    CustomHTML: 'bg-gray-600',
-  };
-
-  // Other tags (excluding the tag being edited) for sequencing selects
-  const otherTags = tags.filter(t => t.id !== existingTag?.id);
+  const typeColor = TAG_TYPE_COLOR[selectedType] ?? '#4b5563';
+  const typeAbbrev = TAG_TYPE_ABBREV[selectedType] ?? '?';
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      {/* GTM-style header strip */}
-      {selectedType && (
-        <div className={`-mx-4 -mt-4 px-4 py-3 mb-2 flex items-center gap-3 ${typeColor[selectedType] ?? 'bg-gray-500'} rounded-t-xl`}>
-          <div className="w-8 h-8 rounded bg-white/20 flex items-center justify-center">
-            <TagIcon className="h-4 w-4 text-white" />
-          </div>
-          <div>
-            <p className="text-white font-semibold text-sm">{TAG_TYPE_LABELS[selectedType as TagType] ?? 'Tag'}</p>
-            <p className="text-white/70 text-xs">Tag Configuration</p>
-          </div>
-        </div>
-      )}
-
-      {/* Name */}
-      <div className="space-y-1">
-        <Label htmlFor="tag-name">Tag Name</Label>
-        <Input id="tag-name" placeholder="e.g. Google Tag - CM360" {...register('name')} />
-        {errors.name && <p className="text-xs text-red-500">{errors.name.message}</p>}
-      </div>
-
-      {/* Type */}
-      <div className="space-y-1">
-        <Label>Tag Type</Label>
-        <Select
-          value={selectedType}
-          onValueChange={(val) => val && setValue('type', val as TagType)}
+    <form id={formId} onSubmit={handleSubmit(onSubmit)}>
+      {/* Tag name row */}
+      <div className="flex items-center gap-3 px-4 py-4" style={{ borderBottom: '1px solid #e6e2db' }}>
+        <div
+          className="w-8 h-8 rounded flex items-center justify-center text-xs font-bold text-white shrink-0"
+          style={{ background: typeColor }}
         >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select a tag type">
-              {selectedType ? TAG_TYPE_LABELS[selectedType as TagType] : undefined}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent className="min-w-80">
-            {Object.entries(TAG_TYPE_LABELS).map(([value, label]) => (
-              <SelectItem key={value} value={value}>{label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <Separator />
-
-      {/* Type-specific fields */}
-      {selectedType === 'GoogleTag' && (
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Label>Tag ID</Label>
-            <Input placeholder="DC-XXXXXXXXX or GT-XXXXXXXXX" {...register('googleTagId')} />
-            <p className="text-xs text-muted-foreground">
-              Your CM360 Advertiser&apos;s Floodlight Tag ID (starts with DC-) or Google Tag ID (starts with GT-)
-            </p>
-          </div>
+          {typeAbbrev}
         </div>
-      )}
-
-      {selectedType === 'FloodlightActivity' && (
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Label>Advertiser ID</Label>
-            <Input placeholder="DC-12345678" {...register('floodlightAdvertiserId')} />
-            <p className="text-xs text-muted-foreground">Your CM360 advertiser ID (starts with DC-)</p>
-          </div>
-          <div className="space-y-1">
-            <Label>Activity Group Tag String</Label>
-            <Input placeholder="e.g. shop" {...register('floodlightGroupTagString')} />
-            <p className="text-xs text-muted-foreground">Found in CM360 under Floodlight → Activity Groups</p>
-          </div>
-          <div className="space-y-1">
-            <Label>Activity Tag String</Label>
-            <Input placeholder="e.g. add_to_cart" {...register('floodlightActivityTagString')} />
-            <p className="text-xs text-muted-foreground">Found in CM360 under Floodlight → Activities</p>
-          </div>
-          <div className="space-y-1">
-            <Label>Counting Method</Label>
-            <Select
-              value={watch('floodlightCountingMethod') || 'standard'}
-              onValueChange={(val) => val && setValue('floodlightCountingMethod', val as 'standard' | 'unique' | 'per_session')}
-            >
-              <SelectTrigger>
-                <SelectValue>
-                  {watch('floodlightCountingMethod') === 'unique' ? 'Unique' :
-                   watch('floodlightCountingMethod') === 'per_session' ? 'Per Session' : 'Standard'}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="standard">Standard</SelectItem>
-                <SelectItem value="unique">Unique</SelectItem>
-                <SelectItem value="per_session">Per Session</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      )}
-
-      {selectedType === 'GA4Configuration' && (
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Label>Measurement ID</Label>
-            <Input placeholder="G-XXXXXXXX" {...register('measurementId')} />
-            <p className="text-xs text-muted-foreground">Found in your GA4 property settings</p>
-          </div>
-        </div>
-      )}
-
-      {selectedType === 'GA4Event' && (
-        <div className="space-y-4">
-          <div className="space-y-1">
-            <Label>Event Name</Label>
-            <Input placeholder="e.g. add_to_cart" {...register('eventName')} />
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Custom Dimensions / Parameters</Label>
-              <Button type="button" variant="outline" size="sm" onClick={addDimension}>
-                <Plus className="h-3 w-3 mr-1" /> Add
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              To reference a variable, type its name in the Value field (e.g. <code className="bg-gray-100 px-1 rounded font-mono">dlv_transactionRevenue</code>)
-            </p>
-            {customDimensions.map((dim, i) => (
-              <div key={i} className="flex gap-2 items-center">
-                <Input
-                  placeholder="Key (e.g. email)"
-                  value={dim.key}
-                  onChange={(e) => updateDimension(i, 'key', e.target.value)}
-                  className="flex-1"
-                />
-                <Input
-                  placeholder="Value (e.g. dlv_email)"
-                  value={dim.value}
-                  onChange={(e) => updateDimension(i, 'value', e.target.value)}
-                  className="flex-1"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => removeDimension(i)}
-                  className="shrink-0"
-                >
-                  <Trash2 className="h-3 w-3 text-red-400" />
-                </Button>
-              </div>
-            ))}
-            {customDimensions.length === 0 && (
-              <p className="text-xs text-muted-foreground">No custom dimensions added yet.</p>
-            )}
-          </div>
-        </div>
-      )}
-
-      {selectedType === 'GoogleAdsConversion' && (
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Label>Conversion ID</Label>
-            <Input placeholder="AW-XXXXXXXXXX" {...register('conversionId')} />
-          </div>
-          <div className="space-y-1">
-            <Label>Conversion Label</Label>
-            <Input placeholder="xXxXxXxXxXx (optional)" {...register('conversionLabel')} />
-          </div>
-        </div>
-      )}
-
-      {selectedType === 'ConversionLinker' && (
-        <div className="rounded-md bg-blue-50 border border-blue-200 p-3">
-          <p className="text-sm text-blue-800">
-            The Conversion Linker tag automatically enables cross-domain conversion tracking. No additional configuration needed.
-          </p>
-        </div>
-      )}
-
-      {selectedType === 'CustomHTML' && (
-        <div className="space-y-1">
-          <Label>HTML Code</Label>
-          <Textarea
-            placeholder='<script>console.log("tag fired");</script>'
-            className="font-mono text-sm"
-            rows={5}
-            {...register('html')}
-          />
-        </div>
-      )}
-
-      <Separator />
-
-      {/* Firing Trigger */}
-      <div className="space-y-1">
-        <Label>Firing Trigger</Label>
-        <Select
-          value={firingTriggerId || ''}
-          onValueChange={(val) => val && setValue('firingTriggerId', val)}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select a trigger">
-              {triggers.find(t => t.id === firingTriggerId)?.name}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent className="min-w-56">
-            {triggers.length === 0 ? (
-              <SelectItem value="_none" disabled>No triggers yet — create one first</SelectItem>
-            ) : (
-              triggers.map((t) => (
-                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-              ))
-            )}
-          </SelectContent>
-        </Select>
-        {errors.firingTriggerId && (
-          <p className="text-xs text-red-500">{errors.firingTriggerId.message}</p>
+        <input
+          className="flex-1 text-base font-semibold bg-transparent outline-none border-b border-transparent focus:border-[#c9c5be]"
+          style={{ color: '#1a1d24' }}
+          placeholder="Untitled Tag"
+          {...register('name')}
+        />
+        {errors.name && (
+          <span className="text-xs shrink-0" style={{ color: '#ef4444' }}>
+            {errors.name.message}
+          </span>
         )}
       </div>
 
-      <Separator />
+      {/* Tag Configuration section */}
+      <Section title="Tag Configuration">
+        {/* Type card / selector */}
+        {!showTypeSelector ? (
+          <div className="flex items-center gap-3 px-4 py-3" style={{ borderBottom: '1px solid #f0ece4' }}>
+            <div
+              className="w-9 h-9 rounded flex items-center justify-center text-xs font-bold text-white shrink-0"
+              style={{ background: typeColor }}
+            >
+              {typeAbbrev}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-semibold" style={{ color: '#1a1d24' }}>
+                {TAG_TYPE_LABELS[selectedType]}
+              </div>
+              <div className="text-xs" style={{ color: '#6b7280' }}>
+                {TAG_TYPE_DESCRIPTION[selectedType]}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowTypeSelector(true)}
+              className="shrink-0 text-xs px-2.5 py-1 rounded transition-colors hover:bg-gray-50"
+              style={{ border: '1px solid #c9c5be', color: '#6b7280' }}
+            >
+              Change
+            </button>
+          </div>
+        ) : (
+          <div className="px-4 py-3" style={{ borderBottom: '1px solid #f0ece4' }}>
+            <Select
+              value={selectedType}
+              onValueChange={(val) => val && handleTypeChange(val as TagType)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(TAG_TYPE_LABELS) as TagType[]).map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {TAG_TYPE_LABELS[value]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <button
+              type="button"
+              onClick={() => setShowTypeSelector(false)}
+              className="mt-1 text-xs"
+              style={{ color: '#9ca3af' }}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
 
-      {/* Tag Sequencing (Advanced Settings) */}
-      <div className="space-y-3">
-        <Label className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Advanced Settings — Tag Sequencing</Label>
-        <p className="text-xs text-muted-foreground">
-          Tag sequencing guarantees one tag fires before or after this tag.
-        </p>
-
-        {/* Fire a tag BEFORE */}
-        <div className="space-y-2">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={fireBeforeEnabled}
-              onChange={(e) => {
-                setFireBeforeEnabled(e.target.checked);
-                if (!e.target.checked) setValue('setupTagId', '');
-              }}
-              className="rounded"
+        {/* Type-specific fields */}
+        {selectedType === 'GoogleTag' && (
+          <FieldRow label="Tag ID">
+            <Input
+              placeholder="DC-XXXXXXXXX or GT-XXXXXXXXX"
+              className="text-sm"
+              {...register('googleTagId')}
             />
-            <span className="text-sm text-gray-700">Fire a tag before this tag fires</span>
-          </label>
-          {fireBeforeEnabled && (
-            <div className="ml-6">
+          </FieldRow>
+        )}
+
+        {selectedType === 'FloodlightActivity' && (
+          <>
+            <FieldRow label="Advertiser ID">
+              <Input placeholder="DC-12345678" className="text-sm" {...register('floodlightAdvertiserId')} />
+            </FieldRow>
+            <FieldRow label="Activity Group String">
+              <Input placeholder="e.g. shop" className="text-sm" {...register('floodlightGroupTagString')} />
+            </FieldRow>
+            <FieldRow label="Activity Tag String">
+              <Input placeholder="e.g. add_to_cart" className="text-sm" {...register('floodlightActivityTagString')} />
+            </FieldRow>
+            <FieldRow label="Counting Method">
               <Select
-                value={setupTagIdVal || ''}
-                onValueChange={(val) => val && setValue('setupTagId', val)}
+                value={watch('floodlightCountingMethod') || 'standard'}
+                onValueChange={(val) =>
+                  val && setValue('floodlightCountingMethod', val as 'standard' | 'unique' | 'per_session')
+                }
               >
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue placeholder="Select a tag">
-                    {otherTags.find(t => t.id === setupTagIdVal)?.name}
+                <SelectTrigger className="text-sm">
+                  <SelectValue>
+                    {watch('floodlightCountingMethod') === 'unique'
+                      ? 'Unique'
+                      : watch('floodlightCountingMethod') === 'per_session'
+                      ? 'Per Session'
+                      : 'Standard'}
                   </SelectValue>
                 </SelectTrigger>
-                <SelectContent className="min-w-56">
-                  {otherTags.length === 0 ? (
-                    <SelectItem value="_none" disabled>No other tags available</SelectItem>
-                  ) : (
-                    otherTags.map((t) => (
-                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                    ))
-                  )}
+                <SelectContent>
+                  <SelectItem value="standard">Standard</SelectItem>
+                  <SelectItem value="unique">Unique</SelectItem>
+                  <SelectItem value="per_session">Per Session</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-          )}
-        </div>
+            </FieldRow>
+          </>
+        )}
 
-        {/* Fire a tag AFTER */}
-        <div className="space-y-2">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={fireAfterEnabled}
-              onChange={(e) => {
-                setFireAfterEnabled(e.target.checked);
-                if (!e.target.checked) setValue('teardownTagId', '');
-              }}
-              className="rounded"
+        {selectedType === 'GA4Configuration' && (
+          <FieldRow label="Measurement ID">
+            <Input placeholder="G-XXXXXXXX" className="text-sm" {...register('measurementId')} />
+          </FieldRow>
+        )}
+
+        {selectedType === 'GA4Event' && (
+          <>
+            <FieldRow label="Event Name">
+              <Input placeholder="e.g. add_to_cart" className="text-sm" {...register('eventName')} />
+            </FieldRow>
+            <div className="px-4 py-3" style={{ borderTop: '1px solid #f0ece4' }}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium" style={{ color: '#6b7280' }}>
+                  Custom Parameters
+                </span>
+                <button
+                  type="button"
+                  onClick={addDimension}
+                  className="flex items-center gap-0.5 text-xs"
+                  style={{ color: '#4f5b8a' }}
+                >
+                  <Plus className="h-3 w-3" /> Add
+                </button>
+              </div>
+              {customDimensions.map((dim, i) => (
+                <div key={i} className="flex gap-2 items-center mb-1.5">
+                  <Input
+                    placeholder="Key"
+                    value={dim.key}
+                    onChange={(e) => updateDimension(i, 'key', e.target.value)}
+                    className="flex-1 text-xs h-8"
+                  />
+                  <Input
+                    placeholder="Value"
+                    value={dim.value}
+                    onChange={(e) => updateDimension(i, 'value', e.target.value)}
+                    className="flex-1 text-xs h-8"
+                  />
+                  <button type="button" onClick={() => removeDimension(i)} className="shrink-0">
+                    <Trash2 className="h-3 w-3" style={{ color: '#b85a5a' }} />
+                  </button>
+                </div>
+              ))}
+              {customDimensions.length === 0 && (
+                <p className="text-xs italic" style={{ color: '#9ca3af' }}>
+                  No parameters yet
+                </p>
+              )}
+            </div>
+          </>
+        )}
+
+        {selectedType === 'GoogleAdsConversion' && (
+          <>
+            <FieldRow label="Conversion ID">
+              <Input placeholder="AW-XXXXXXXXXX" className="text-sm" {...register('conversionId')} />
+            </FieldRow>
+            <FieldRow label="Conversion Label">
+              <Input
+                placeholder="xXxXxXxXxXx (optional)"
+                className="text-sm"
+                {...register('conversionLabel')}
+              />
+            </FieldRow>
+          </>
+        )}
+
+        {selectedType === 'ConversionLinker' && (
+          <div className="px-4 py-3">
+            <p className="text-xs" style={{ color: '#6b7280' }}>
+              Automatically enables cross-domain conversion tracking. No additional configuration needed.
+            </p>
+          </div>
+        )}
+
+        {selectedType === 'CustomHTML' && (
+          <FieldRow label="HTML Code">
+            <Textarea
+              placeholder='<script>console.log("tag fired");</script>'
+              className="font-mono text-xs"
+              rows={4}
+              {...register('html')}
             />
-            <span className="text-sm text-gray-700">Fire a tag after this tag fires</span>
-          </label>
-          {fireAfterEnabled && (
-            <div className="ml-6">
-              <Select
-                value={teardownTagIdVal || ''}
-                onValueChange={(val) => val && setValue('teardownTagId', val)}
-              >
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue placeholder="Select a tag">
-                    {otherTags.find(t => t.id === teardownTagIdVal)?.name}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent className="min-w-56">
-                  {otherTags.length === 0 ? (
-                    <SelectItem value="_none" disabled>No other tags available</SelectItem>
-                  ) : (
-                    otherTags.map((t) => (
-                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-        </div>
-      </div>
+          </FieldRow>
+        )}
+      </Section>
 
-      {/* Actions */}
-      <div className="flex justify-end gap-2 pt-2">
-        <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
-        <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white">
-          {existingTag ? 'Update Tag' : 'Save Tag'}
-        </Button>
-      </div>
+      {/* Triggering section */}
+      <Section title="Triggering">
+        <FieldRow label="Firing Trigger">
+          <Select
+            value={firingTriggerId || ''}
+            onValueChange={(val) => val && setValue('firingTriggerId', val)}
+          >
+            <SelectTrigger className="text-sm">
+              <SelectValue placeholder="Select a trigger">
+                {triggers.find((t) => t.id === firingTriggerId)?.name || ''}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {triggers.length === 0 ? (
+                <SelectItem value="_none" disabled>
+                  No triggers yet — create one first
+                </SelectItem>
+              ) : (
+                triggers.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.name}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+        </FieldRow>
+        {errors.firingTriggerId && (
+          <p className="px-4 pb-2 text-xs" style={{ color: '#ef4444' }}>
+            {errors.firingTriggerId.message}
+          </p>
+        )}
+      </Section>
+
+      {/* Advanced Settings section */}
+      <Section title="Advanced Settings — Tag Sequencing, Firing Priority" defaultOpen={false}>
+        <div className="px-4 py-3 space-y-3">
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 cursor-pointer text-sm" style={{ color: '#4b5563' }}>
+              <input
+                type="checkbox"
+                checked={fireBeforeEnabled}
+                onChange={(e) => {
+                  setFireBeforeEnabled(e.target.checked);
+                  if (!e.target.checked) setValue('setupTagId', '');
+                }}
+                className="rounded"
+              />
+              Fire a tag before this tag fires
+            </label>
+            {fireBeforeEnabled && (
+              <div className="ml-6">
+                <Select
+                  value={setupTagIdVal || ''}
+                  onValueChange={(val) => val && setValue('setupTagId', val)}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Select a tag">
+                      {otherTags.find((t) => t.id === setupTagIdVal)?.name}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {otherTags.length === 0 ? (
+                      <SelectItem value="_none" disabled>
+                        No other tags available
+                      </SelectItem>
+                    ) : (
+                      otherTags.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 cursor-pointer text-sm" style={{ color: '#4b5563' }}>
+              <input
+                type="checkbox"
+                checked={fireAfterEnabled}
+                onChange={(e) => {
+                  setFireAfterEnabled(e.target.checked);
+                  if (!e.target.checked) setValue('teardownTagId', '');
+                }}
+                className="rounded"
+              />
+              Fire a tag after this tag fires
+            </label>
+            {fireAfterEnabled && (
+              <div className="ml-6">
+                <Select
+                  value={teardownTagIdVal || ''}
+                  onValueChange={(val) => val && setValue('teardownTagId', val)}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Select a tag">
+                      {otherTags.find((t) => t.id === teardownTagIdVal)?.name}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {otherTags.length === 0 ? (
+                      <SelectItem value="_none" disabled>
+                        No other tags available
+                      </SelectItem>
+                    ) : (
+                      otherTags.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+        </div>
+      </Section>
     </form>
   );
 }

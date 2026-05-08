@@ -20,6 +20,8 @@ interface ProgressStore extends UserProgress {
   getAccumulatedWorkspace: (currentChallengeId: string) => WorkspaceState;
   setUserName: (name: string) => void;
   markAllCompleted: () => void;
+  setQuizScore: (score: number) => void;
+  setCertId: (id: string) => void;
   resetProgress: () => void;
 }
 
@@ -75,6 +77,10 @@ export const useProgressStore = create<ProgressStore>()(
 
       markAllCompleted: () =>
         set({ allCompleted: true, completedAt: Date.now() }),
+
+      setQuizScore: (score) => set({ quizScore: score }),
+
+      setCertId: (id) => set({ certId: id }),
 
       resetProgress: () => set({ ...defaultProgress }),
     }),

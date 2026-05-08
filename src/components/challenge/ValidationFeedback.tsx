@@ -1,9 +1,6 @@
 'use client';
 
 import { ValidationResult } from '@/lib/types/challenge';
-import { CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
-import { Progress } from '@/components/ui/progress';
-import { motion, AnimatePresence } from 'framer-motion';
 
 interface ValidationFeedbackProps {
   result: ValidationResult | null;
@@ -12,63 +9,78 @@ interface ValidationFeedbackProps {
 export function ValidationFeedback({ result }: ValidationFeedbackProps) {
   if (!result) return null;
 
+  const pct = Math.round((result.passedCount / result.totalCount) * 100);
+
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0 }}
-        className={`rounded-lg border p-4 space-y-3 ${
-          result.passed
-            ? 'bg-green-50 border-green-200'
-            : 'bg-amber-50 border-amber-200'
-        }`}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {result.passed ? (
-              <CheckCircle2 className="h-5 w-5 text-green-500" />
-            ) : (
-              <AlertCircle className="h-5 w-5 text-amber-500" />
-            )}
-            <span className={`font-semibold text-sm ${result.passed ? 'text-green-800' : 'text-amber-800'}`}>
-              {result.passed ? 'All checks passed!' : `${result.passedCount} of ${result.totalCount} checks passed`}
-            </span>
-          </div>
-          <span className={`text-sm font-bold ${result.passed ? 'text-green-700' : 'text-amber-700'}`}>
-            {result.score}%
-          </span>
+    <div>
+      {/* Header */}
+      <div className="flex items-start gap-3 pb-4" style={{ borderBottom: '1px solid #e6e2db' }}>
+        <div
+          className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-sm font-bold"
+          style={{
+            background: result.passed ? '#dcfce7' : '#fef3c7',
+            color: result.passed ? '#166534' : '#92400e',
+          }}
+        >
+          {result.passed ? '✓' : '!'}
         </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-semibold" style={{ color: '#1a1d24' }}>
+            {result.passed
+              ? 'All objectives complete!'
+              : `Almost there — ${result.passedCount} of ${result.totalCount} objectives complete`}
+          </div>
+          <div className="text-xs mt-0.5" style={{ color: '#6b7280' }}>
+            {result.passed
+              ? 'Great work! Everything is configured correctly.'
+              : 'Fix the remaining objective and re-check'}
+          </div>
+        </div>
+      </div>
 
-        {/* Progress bar */}
-        <Progress
-          value={result.score}
-          className={`h-1.5 ${result.passed ? '[&>div]:bg-green-500' : '[&>div]:bg-amber-400'}`}
-        />
+      {/* Progress bar */}
+      <div className="py-3" style={{ borderBottom: '1px solid #e6e2db' }}>
+        <div className="w-full rounded-full h-1.5" style={{ background: '#e6e2db' }}>
+          <div
+            className="h-1.5 rounded-full transition-all"
+            style={{
+              width: `${pct}%`,
+              background: result.passed ? '#5b8a5b' : '#c98a3a',
+            }}
+          />
+        </div>
+      </div>
 
-        {/* Individual criteria */}
-        <div className="space-y-1.5">
-          {result.feedback.map((item) => (
-            <div key={item.criterionId} className="flex items-start gap-2">
-              {item.passed ? (
-                <CheckCircle2 className="h-3.5 w-3.5 text-green-500 mt-0.5 shrink-0" />
-              ) : (
-                <XCircle className="h-3.5 w-3.5 text-red-400 mt-0.5 shrink-0" />
-              )}
-              <span className={`text-xs leading-relaxed ${item.passed ? 'text-green-700' : 'text-red-600'}`}>
-                {item.message}
+      {/* Objective rows */}
+      <div>
+        {result.feedback.map((item) => (
+          <div key={item.criterionId} style={{ borderBottom: '1px solid #f0ece4' }}>
+            <div className="flex items-start gap-3 py-3">
+              <div
+                className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-xs font-bold mt-0.5"
+                style={{
+                  background: item.passed ? '#dcfce7' : '#fef3c7',
+                  color: item.passed ? '#166534' : '#92400e',
+                }}
+              >
+                {item.passed ? '✓' : '!'}
+              </div>
+              <span className="text-sm flex-1 leading-snug" style={{ color: '#1a1d24' }}>
+                {item.description}
               </span>
             </div>
-          ))}
-        </div>
-
-        {result.passed && (
-          <div className="bg-green-100 rounded-md px-3 py-2 text-xs text-green-800 font-medium">
-            🎉 Challenge complete! Click "Next Challenge" to continue.
+            {!item.passed && item.message && (
+              <div
+                className="ml-9 mb-3 px-3 py-2 rounded text-xs leading-relaxed"
+                style={{ background: '#fef9c3', border: '1px solid #fde68a' }}
+              >
+                <span className="font-semibold" style={{ color: '#b45309' }}>Fix: </span>
+                <span style={{ color: '#78350f' }}>{item.message}</span>
+              </div>
+            )}
           </div>
-        )}
-      </motion.div>
-    </AnimatePresence>
+        ))}
+      </div>
+    </div>
   );
 }

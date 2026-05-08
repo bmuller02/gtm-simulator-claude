@@ -2,9 +2,7 @@
 
 import { use, useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { GTMWorkspace } from '@/components/workspace/GTMWorkspace';
@@ -17,10 +15,7 @@ import { getChallenge, getNextChallenge, ALL_CHALLENGES } from '@/lib/challenges
 import { validateWorkspace } from '@/lib/validation/engine';
 import { ValidationResult } from '@/lib/types/challenge';
 import { EventLogEntry } from '@/components/mock-website/EventLog';
-import {
-  ChevronLeft, ChevronRight, SkipForward, ClipboardCheck,
-  Trophy, MousePointerClick
-} from 'lucide-react';
+import { ChevronLeft, ChevronRight, ClipboardCheck, Trophy, MousePointerClick } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { WorkspaceState, Trigger, Tag, Variable, DataLayerVariableConfig } from '@/lib/types/gtm';
 
@@ -31,7 +26,6 @@ function resolveVariableValue(
   eventData: Record<string, unknown>,
   variables: Variable[]
 ): string {
-  // Check if variableName matches a data layer variable's display name
   const dlVar = variables.find(
     (v) => v.type === 'DataLayer' && v.name.toLowerCase() === variableName.toLowerCase()
   );
@@ -39,7 +33,6 @@ function resolveVariableValue(
     const key = (dlVar.config as DataLayerVariableConfig).dataLayerVariableName;
     return String(eventData[key] ?? '');
   }
-  // Built-in GTM variable names
   const lower = variableName.toLowerCase();
   if (lower.includes('page url') || lower.includes('page_url')) {
     return `https://preview.site${eventData.page_path || '/'}`;
@@ -48,10 +41,8 @@ function resolveVariableValue(
     return String(eventData.page_path || '/');
   }
   if (lower.includes('click text')) {
-    // For add_to_cart events the click text is the button label
     return eventData.click_text ? String(eventData.click_text) : 'Add to Cart';
   }
-  // Fall back to checking eventData directly by the variable name
   return String(eventData[variableName] ?? eventData[lower] ?? '');
 }
 
@@ -76,7 +67,6 @@ function triggerFires(
   eventData: Record<string, unknown>,
   variables: Variable[]
 ): boolean {
-  // Map event names to trigger types
   const pageViewEvents = ['page_view'];
   const clickEvents = ['add_to_cart'];
   const formEvents = ['form_submission'];
@@ -98,7 +88,6 @@ function triggerFires(
       return false;
   }
 
-  // Evaluate all conditions
   for (const condition of trigger.conditions) {
     const actual = resolveVariableValue(condition.variable, eventData, variables);
     if (!evaluateCondition(actual, condition.operator, condition.value)) {
@@ -121,7 +110,6 @@ function simulateFiredTags(
   });
 }
 
-// Events that must be fired on the preview site before advancing (per challenge)
 const REQUIRED_EVENTS: Record<string, string> = {
   '1-1': 'page_view',
   '1-2': 'add_to_cart',
@@ -130,9 +118,24 @@ const REQUIRED_EVENTS: Record<string, string> = {
   '2-2': 'purchase',
 };
 
+const LEVEL_COLORS: Record<number, { bg: string; text: string; border: string }> = {
+  1: { bg: '#dcfce7', text: '#166534', border: '#bbf7d0' },
+  2: { bg: '#fef9c3', text: '#854d0e', border: '#fef08a' },
+  3: { bg: '#fee2e2', text: '#991b1b', border: '#fecaca' },
+};
+
+const LEVEL_NAMES: Record<number, string> = {
+  1: 'Beginner',
+  2: 'Intermediate',
+  3: 'Advanced',
+};
+
 interface PageProps {
   params: Promise<{ level: string; index: string }>;
 }
+
+// Default workspace height (px)
+const DEFAULT_WORKSPACE_HEIGHT = 200;
 
 export default function ChallengePage({ params }: PageProps) {
   const { level: levelStr, index: indexStr } = use(params);
@@ -157,28 +160,28 @@ export default function ChallengePage({ params }: PageProps) {
 
   // ── Panel resize state ────────────────────────────────────────────
   const [leftWidth, setLeftWidth] = useState(270);
-  const [rightWidth, setRightWidth] = useState(420);
-  const [eventLogHeight, setEventLogHeight] = useState(130);
+  const [workspaceHeight, setWorkspaceHeight] = useState(DEFAULT_WORKSPACE_HEIGHT);
+  const [workspaceCollapsed, setWorkspaceCollapsed] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const isDraggingLeft = useRef(false);
-  const isDraggingRight = useRef(false);
+  const isDraggingWorkspace = useRef(false);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
     if (isDraggingLeft.current) {
-      const newWidth = Math.max(200, Math.min(400, e.clientX - rect.left));
+      const newWidth = Math.max(200, Math.min(420, e.clientX - rect.left));
       setLeftWidth(newWidth);
     }
-    if (isDraggingRight.current) {
-      const newWidth = Math.max(300, Math.min(600, rect.right - e.clientX));
-      setRightWidth(newWidth);
+    if (isDraggingWorkspace.current) {
+      const newHeight = Math.max(120, Math.min(500, rect.bottom - e.clientY));
+      setWorkspaceHeight(newHeight);
     }
   }, []);
 
   const handleMouseUp = useCallback(() => {
     isDraggingLeft.current = false;
-    isDraggingRight.current = false;
+    isDraggingWorkspace.current = false;
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
   }, []);
@@ -192,7 +195,6 @@ export default function ChallengePage({ params }: PageProps) {
     };
   }, [handleMouseMove, handleMouseUp]);
 
-  // ── Load workspace on challenge change ───────────────────────────
   useEffect(() => {
     if (!challenge) return;
     resetWorkspace();
@@ -207,7 +209,6 @@ export default function ChallengePage({ params }: PageProps) {
       if (saved) {
         loadWorkspace(saved);
       } else {
-        // Seed new challenge with items accumulated from all prior completed challenges
         const accumulated = getAccumulatedWorkspace(challenge.id);
         if (accumulated.tags.length || accumulated.triggers.length || accumulated.variables.length) {
           loadWorkspace(accumulated);
@@ -220,7 +221,7 @@ export default function ChallengePage({ params }: PageProps) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
-          <p className="text-gray-500">Challenge not found.</p>
+          <p style={{ color: '#6b7280' }}>Challenge not found.</p>
           <Button onClick={() => router.push('/')} className="mt-4">← Back to Home</Button>
         </div>
       </div>
@@ -234,25 +235,17 @@ export default function ChallengePage({ params }: PageProps) {
     setValidationResult(result);
     setHasValidated(true);
     setShowValidationDialog(true);
-    if (result.passed) {
-      markComplete(challenge.id);
-    }
+    if (result.passed) markComplete(challenge.id);
   };
 
   const handleNext = () => {
-    if (nextChallenge) {
-      router.push(`/challenge/${nextChallenge.level}/${nextChallenge.index}`);
-    } else {
-      router.push('/quiz');
-    }
+    if (nextChallenge) router.push(`/challenge/${nextChallenge.level}/${nextChallenge.index}`);
+    else router.push('/quiz');
   };
 
   const handleSkip = () => {
-    if (nextChallenge) {
-      router.push(`/challenge/${nextChallenge.level}/${nextChallenge.index}`);
-    } else {
-      router.push('/quiz');
-    }
+    if (nextChallenge) router.push(`/challenge/${nextChallenge.level}/${nextChallenge.index}`);
+    else router.push('/quiz');
   };
 
   const handleNavigate = (value: string | null) => {
@@ -263,81 +256,125 @@ export default function ChallengePage({ params }: PageProps) {
 
   const isNextEnabled = (isCompleted || (validationResult?.passed ?? false)) && hasRequiredEvent;
   const isLastChallenge = !nextChallenge;
+  const levelColor = LEVEL_COLORS[challenge.level];
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50 overflow-hidden">
-      {/* Top Navigation Bar */}
-      <header className="bg-white border-b px-4 py-2 flex items-center gap-3 shrink-0">
-        <Button variant="ghost" size="sm" onClick={() => router.push('/')} className="text-xs gap-1 h-7">
-          <ChevronLeft className="h-3 w-3" />
-          Home
-        </Button>
-        <Separator orientation="vertical" className="h-5" />
+    <div className="flex flex-col h-screen overflow-hidden" style={{ background: '#faf8f4' }}>
 
-        <Select value={`${level}-${index}`} onValueChange={handleNavigate}>
-          <SelectTrigger className="w-56 h-7 text-xs border-gray-200">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {ALL_CHALLENGES.map((c) => (
-              <SelectItem key={c.id} value={c.id} className="text-xs">
-                <div className="flex items-center gap-2">
-                  <span className={completedChallenges.includes(c.id) ? 'text-green-500' : 'text-gray-400'}>
-                    {completedChallenges.includes(c.id) ? '✓' : '○'}
-                  </span>
-                  L{c.level}-{c.index}: {c.title}
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      {/* ── Top Navigation Bar ─────────────────────────────────────── */}
+      <header
+        className="shrink-0 flex items-center gap-3 px-4 py-2"
+        style={{ background: '#ffffff', borderBottom: '1px solid #c9c5be' }}
+      >
+        {/* PSL Branding */}
+        <button
+          onClick={() => router.push('/')}
+          className="flex items-center gap-2 shrink-0 hover:opacity-80 transition-opacity"
+        >
+          <span className="text-xs font-bold tracking-widest" style={{ color: '#1a1d24' }}>
+            PLATFORM SOLUTIONS
+          </span>
+          <span
+            className="text-xs font-semibold px-1.5 py-0.5"
+            style={{ border: '1px solid #4f5b8a', color: '#4f5b8a' }}
+          >
+            LABS
+          </span>
+        </button>
 
-        <div className="flex items-center gap-1 ml-1">
-          {ALL_CHALLENGES.map((c) => (
-            <div
-              key={c.id}
-              className={`w-2 h-2 rounded-full transition-colors ${
-                completedChallenges.includes(c.id)
-                  ? 'bg-green-400'
-                  : c.id === challenge.id
-                  ? 'bg-blue-400'
-                  : 'bg-gray-200'
-              }`}
-              title={c.title}
-            />
-          ))}
+        <Separator orientation="vertical" className="h-5" style={{ background: '#c9c5be' }} />
+
+        {/* Simulator title + challenge name */}
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-sm font-semibold shrink-0" style={{ color: '#1a1d24' }}>
+            Tag Manager Simulator
+          </span>
+          <span className="text-sm truncate" style={{ color: '#6b7280' }}>
+            · {challenge.title}
+          </span>
         </div>
 
-        <div className="ml-auto flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
+        {/* Right-side controls */}
+        <div className="ml-auto flex items-center gap-2 shrink-0">
+          {/* Level badge */}
+          <span
+            className="text-xs font-semibold px-2 py-0.5 rounded"
+            style={{ background: levelColor.bg, color: levelColor.text, border: `1px solid ${levelColor.border}` }}
+          >
+            Level {challenge.level}
+          </span>
+
+          {/* Challenge selector */}
+          <Select value={`${level}-${index}`} onValueChange={handleNavigate}>
+            <SelectTrigger
+              className="h-7 text-xs"
+              style={{ width: '140px', borderColor: '#c9c5be' }}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {ALL_CHALLENGES.map((c) => (
+                <SelectItem key={c.id} value={c.id} className="text-xs">
+                  <div className="flex items-center gap-2">
+                    <span style={{ color: completedChallenges.includes(c.id) ? '#5b8a5b' : '#c9c5be' }}>
+                      {completedChallenges.includes(c.id) ? '✓' : '○'}
+                    </span>
+                    L{c.level}-{c.index}: {c.title}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Progress dots */}
+          <div className="flex items-center gap-1">
+            {ALL_CHALLENGES.map((c) => (
+              <div
+                key={c.id}
+                className="w-2 h-2 rounded-full transition-colors"
+                style={{
+                  background: completedChallenges.includes(c.id)
+                    ? '#5b8a5b'
+                    : c.id === challenge.id
+                    ? '#4f5b8a'
+                    : '#c9c5be',
+                }}
+                title={c.title}
+              />
+            ))}
+          </div>
+
+          <Separator orientation="vertical" className="h-5" style={{ background: '#c9c5be' }} />
+
+          {/* Skip */}
+          <button
             onClick={handleSkip}
-            className="text-xs gap-1 h-7 text-gray-500"
+            className="text-xs px-3 py-1.5 rounded transition-colors hover:bg-gray-100"
+            style={{ color: '#6b7280' }}
           >
             Skip
-            <SkipForward className="h-3 w-3" />
-          </Button>
+          </button>
 
-          <Button
-            size="sm"
+          {/* Check Work */}
+          <button
             onClick={handleCheckWork}
-            className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-1"
+            className="text-xs px-3 py-1.5 rounded flex items-center gap-1.5 transition-colors hover:bg-gray-50"
+            style={{ border: '1px solid #1a1d24', color: '#1a1d24', background: '#ffffff' }}
           >
             <ClipboardCheck className="h-3 w-3" />
             Check Work
-          </Button>
+          </button>
 
-          {/* Show interaction requirement hint */}
+          {/* Interaction hint */}
           {(isCompleted || validationResult?.passed) && requiredEvent && !hasRequiredEvent && (
-            <span className="text-xs text-amber-600 flex items-center gap-1">
+            <span className="text-xs flex items-center gap-1" style={{ color: '#c98a3a' }}>
               <MousePointerClick className="h-3 w-3" />
               Try the preview site first
             </span>
           )}
 
-          <Button
-            size="sm"
+          {/* Next / Finish */}
+          <button
             onClick={handleNext}
             disabled={!isNextEnabled}
             title={
@@ -345,31 +382,35 @@ export default function ChallengePage({ params }: PageProps) {
                 ? `Fire a "${requiredEvent}" event on the preview site first`
                 : undefined
             }
-            className={`h-7 text-xs gap-1 transition-all ${
-              isNextEnabled
-                ? 'bg-green-500 hover:bg-green-600 text-white'
-                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-            }`}
+            className="text-xs px-3 py-1.5 rounded flex items-center gap-1.5 font-semibold transition-colors"
+            style={{
+              background: isNextEnabled ? '#1a1d24' : '#e6e2db',
+              color: isNextEnabled ? '#ffffff' : '#a39d94',
+              cursor: isNextEnabled ? 'pointer' : 'not-allowed',
+            }}
           >
             {isLastChallenge ? (
               <><Trophy className="h-3 w-3" />Finish</>
             ) : (
-              <>Next<ChevronRight className="h-3 w-3" /></>
+              <>Next <ChevronRight className="h-3 w-3" /></>
             )}
-          </Button>
+          </button>
         </div>
       </header>
 
-      {/* ── Three-column main layout ── */}
-      <div ref={containerRef} className="flex-1 flex overflow-hidden">
+      {/* ── Main content ─────────────────────────────────────────────── */}
+      <div ref={containerRef} className="flex-1 flex overflow-hidden min-h-0">
 
         {/* Column 1: Instructions */}
         <div
-          style={{ width: `${leftWidth}px` }}
-          className="shrink-0 flex flex-col border-r bg-white overflow-hidden"
+          className="shrink-0 flex flex-col overflow-hidden"
+          style={{ width: `${leftWidth}px`, background: '#ffffff', borderRight: '1px solid #c9c5be' }}
         >
-          <div className="px-3 py-2 border-b bg-gray-50 shrink-0">
-            <span className="text-xs font-medium text-gray-600">Instructions</span>
+          <div
+            className="px-3 py-2 shrink-0"
+            style={{ borderBottom: '1px solid #e6e2db', background: '#faf8f4' }}
+          >
+            <span className="text-xs font-semibold" style={{ color: '#6b7280' }}>Instructions</span>
           </div>
           <div className="flex-1 overflow-y-auto p-4 min-h-0">
             <InstructionsPanel challenge={challenge} />
@@ -383,7 +424,10 @@ export default function ChallengePage({ params }: PageProps) {
 
         {/* Drag handle — left */}
         <div
-          className="w-1.5 shrink-0 cursor-col-resize bg-gray-200 hover:bg-blue-400 transition-colors active:bg-blue-500"
+          className="w-1.5 shrink-0 cursor-col-resize transition-colors"
+          style={{ background: '#e6e2db' }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = '#4f5b8a')}
+          onMouseLeave={(e) => (e.currentTarget.style.background = '#e6e2db')}
           onMouseDown={(e) => {
             e.preventDefault();
             isDraggingLeft.current = true;
@@ -392,21 +436,29 @@ export default function ChallengePage({ params }: PageProps) {
           }}
         />
 
-        {/* Column 2: Preview Site */}
+        {/* Column 2: Preview + Workspace stacked */}
         <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-          <div className="px-3 py-2 border-b bg-gray-50 shrink-0">
-            <span className="text-xs font-medium text-gray-600">Preview Site</span>
+
+          {/* Preview Site label */}
+          <div
+            className="px-3 py-2 shrink-0"
+            style={{ borderBottom: '1px solid #e6e2db', background: '#faf8f4' }}
+          >
+            <span className="text-xs font-semibold" style={{ color: '#6b7280' }}>Preview Site</span>
             {requiredEvent && !hasRequiredEvent && (isCompleted || validationResult?.passed) && (
-              <span className="ml-2 text-xs text-amber-600">
-                — fire a <code className="bg-amber-50 px-1 rounded font-mono">{requiredEvent}</code> event here to unlock Next
+              <span className="ml-2 text-xs" style={{ color: '#c98a3a' }}>
+                — fire a <code
+                  className="px-1 rounded font-mono text-xs"
+                  style={{ background: '#fef4c8', color: '#c98a3a' }}
+                >{requiredEvent}</code> event to unlock Next
               </span>
             )}
           </div>
+
+          {/* Preview site */}
           <div className="flex-1 overflow-hidden min-h-0">
             <MockWebsite
               type={challenge.mockWebsite}
-              eventLogHeight={eventLogHeight}
-              onEventLogHeightChange={setEventLogHeight}
               externalLog={firedEvents}
               onEvent={(name, data) => {
                 const ts = Date.now();
@@ -417,10 +469,9 @@ export default function ChallengePage({ params }: PageProps) {
                   data: data ?? {},
                   type: 'dlEvent',
                 };
-                // Simulate which tags fire based on current workspace
                 const workspace = getSnapshot();
-                const firedTags = simulateFiredTags(workspace, name, data ?? {});
-                const tagEntries: EventLogEntry[] = firedTags.map((tag) => ({
+                const fired = simulateFiredTags(workspace, name, data ?? {});
+                const tagEntries: EventLogEntry[] = fired.map((tag) => ({
                   id: `${ts}-tag-${tag.id}`,
                   timestamp: ts,
                   name: tag.name,
@@ -432,60 +483,110 @@ export default function ChallengePage({ params }: PageProps) {
               }}
             />
           </div>
-        </div>
 
-        {/* Drag handle — right */}
-        <div
-          className="w-1.5 shrink-0 cursor-col-resize bg-gray-200 hover:bg-blue-400 transition-colors active:bg-blue-500"
-          onMouseDown={(e) => {
-            e.preventDefault();
-            isDraggingRight.current = true;
-            document.body.style.cursor = 'col-resize';
-            document.body.style.userSelect = 'none';
-          }}
-        />
+          {/* Workspace resize handle */}
+          {!workspaceCollapsed && (
+            <div
+              className="h-1.5 shrink-0 cursor-row-resize transition-colors flex items-center justify-center"
+              style={{ background: '#e6e2db' }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = '#4f5b8a')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = '#e6e2db')}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                isDraggingWorkspace.current = true;
+                document.body.style.cursor = 'row-resize';
+                document.body.style.userSelect = 'none';
+              }}
+            >
+              <div className="w-8 h-0.5 rounded-full" style={{ background: '#a39d94' }} />
+            </div>
+          )}
 
-        {/* Column 3: GTM Workspace */}
-        <div
-          style={{ width: `${rightWidth}px` }}
-          className="shrink-0 flex flex-col overflow-hidden"
-        >
-          <div className="px-3 py-2 border-b bg-gray-50 shrink-0 border-l">
-            <span className="text-xs font-medium text-gray-600">GTM Workspace</span>
-          </div>
-          <div className="flex-1 overflow-hidden p-2 min-h-0 border-l">
-            <GTMWorkspace />
+          {/* Simulator Workspace bottom bar */}
+          <div
+            className="shrink-0 overflow-hidden"
+            style={{ height: workspaceCollapsed ? 'auto' : `${workspaceHeight}px` }}
+          >
+            <GTMWorkspace
+              collapsed={workspaceCollapsed}
+              onToggleCollapse={() => setWorkspaceCollapsed((c) => !c)}
+              onBuilderOpen={() => {
+                setWorkspaceCollapsed(false);
+                setWorkspaceHeight((h) => Math.max(h, 420));
+              }}
+            />
           </div>
         </div>
       </div>
 
       {/* ── Check Work results dialog ── */}
       <Dialog open={showValidationDialog} onOpenChange={setShowValidationDialog}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              {validationResult?.passed ? '✓ All checks passed!' : 'Check Work Results'}
-            </DialogTitle>
+        <DialogContent
+          className="max-w-lg p-0 overflow-hidden gap-0"
+          style={{ background: '#fefcf9', border: '1px solid #e6e2db', borderRadius: '12px' }}
+        >
+          {/* suppress the default DialogTitle for screen-reader by providing sr-only title */}
+          <DialogHeader className="sr-only">
+            <DialogTitle>Check Work Results</DialogTitle>
           </DialogHeader>
           {validationResult && (
-            <div className="space-y-3">
-              <ValidationFeedback result={validationResult} />
-              {validationResult.passed && requiredEvent && !hasRequiredEvent && (
-                <div className="bg-amber-50 border border-amber-200 rounded-md px-3 py-2 text-xs text-amber-800">
-                  <strong>One more step:</strong> Navigate the preview site to fire a{' '}
-                  <code className="bg-amber-100 px-1 rounded font-mono">{requiredEvent}</code>{' '}
-                  event. This lets you see your tag in action before advancing!
-                </div>
-              )}
-              {validationResult.passed && (!requiredEvent || hasRequiredEvent) && (
-                <Button
-                  className="w-full bg-green-500 hover:bg-green-600 text-white"
-                  onClick={() => { setShowValidationDialog(false); handleNext(); }}
+            <>
+              <div className="px-6 pt-6 pb-2">
+                <ValidationFeedback result={validationResult} />
+
+                {/* Required-event nudge */}
+                {validationResult.passed && requiredEvent && !hasRequiredEvent && (
+                  <div
+                    className="mt-4 rounded px-3 py-2 text-xs leading-relaxed"
+                    style={{ background: '#fef9c3', border: '1px solid #fde68a' }}
+                  >
+                    <strong style={{ color: '#b45309' }}>One more step: </strong>
+                    <span style={{ color: '#78350f' }}>
+                      Navigate the preview site to fire a{' '}
+                      <code
+                        className="px-1 rounded font-mono"
+                        style={{ background: '#fef3c7', color: '#92400e' }}
+                      >{requiredEvent}</code>{' '}
+                      event to see your tag in action before advancing.
+                    </span>
+                  </div>
+                )}
+
+                {/* Continue button (all passed + event fired) */}
+                {validationResult.passed && (!requiredEvent || hasRequiredEvent) && (
+                  <button
+                    className="mt-4 w-full py-2 text-sm font-semibold rounded transition-colors"
+                    style={{ background: '#1a1d24', color: '#ffffff' }}
+                    onClick={() => { setShowValidationDialog(false); handleNext(); }}
+                  >
+                    {isLastChallenge ? 'Finish & Earn Certificate →' : 'Continue to Next Challenge →'}
+                  </button>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div
+                className="flex items-center justify-between px-6 py-4 mt-2"
+                style={{ borderTop: '1px solid #e6e2db', background: '#faf8f4' }}
+              >
+                <button
+                  onClick={() => setShowValidationDialog(false)}
+                  className="text-sm px-4 py-1.5 rounded transition-colors hover:bg-gray-100"
+                  style={{ color: '#6b7280', border: '1px solid #e6e2db' }}
                 >
-                  {isLastChallenge ? '🏆 Finish & Earn Certificate' : 'Continue to Next Challenge →'}
-                </Button>
-              )}
-            </div>
+                  Close
+                </button>
+                {!validationResult.passed && (
+                  <button
+                    onClick={handleCheckWork}
+                    className="text-sm px-4 py-1.5 rounded font-semibold transition-colors"
+                    style={{ background: '#1a1d24', color: '#ffffff' }}
+                  >
+                    Re-check
+                  </button>
+                )}
+              </div>
+            </>
           )}
         </DialogContent>
       </Dialog>

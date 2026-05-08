@@ -6,6 +6,8 @@ export interface UserProgress {
   userName?: string;
   allCompleted?: boolean;
   completedAt?: number;
+  quizScore?: number;
+  certId?: string;
 }
 
 export const defaultProgress: UserProgress = {

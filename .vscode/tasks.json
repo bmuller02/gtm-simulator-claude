@@ -1,0 +1,217 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "install-deps",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"install"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "check-local-port",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1 -Property LocalAddress,LocalPort,OwningProcess; if ($?) { '' }; Get-NetTCPConnection -LocalPort 3001 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1 -Property LocalAddress,LocalPort,OwningProcess"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "dev-server-preview",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"dev"
+			],
+			"isBackground": true
+		},
+		{
+			"label": "launch-dev-detached",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"$out='.next-dev.out.log'; $err='.next-dev.err.log'; if (Test-Path $out) { Remove-Item $out -Force }; if (Test-Path $err) { Remove-Item $err -Force }; $p = Start-Process -FilePath cmd.exe -ArgumentList '/c npm run dev -- --port 3000' -WorkingDirectory $PWD -RedirectStandardOutput $out -RedirectStandardError $err -PassThru; Start-Sleep -Seconds 10; $listen = Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue; if ($listen) { 'DEV_SERVER_UP'; 'PID=' + $p.Id } else { 'DEV_SERVER_DOWN'; 'PID=' + $p.Id; if (Test-Path $err) { Get-Content $err -TotalCount 80 } }"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "start-next-dev",
+			"type": "shell",
+			"command": "npx",
+			"args": [
+				"next",
+				"dev",
+				"-p",
+				"3000"
+			],
+			"isBackground": true
+		},
+		{
+			"label": "probe-port-3000",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1 -Property LocalAddress,LocalPort,State,OwningProcess"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "probe-port-cmd",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"netstat -ano | findstr :3000"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "probe-node-listeners",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"netstat -ano | findstr LISTENING"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run-dev-foreground",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"dev",
+				"--",
+				"--port",
+				"3000"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "install-ignore-scripts",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"install",
+				"--ignore-scripts"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "check-next-bin",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"if exist node_modules\\.bin\\next.cmd (echo NEXT_OK) else (echo NEXT_MISSING)"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "install-next-only",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"install",
+				"next@16.2.2",
+				"--no-save",
+				"--ignore-scripts"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "kill-node-procs",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"taskkill /F /IM node.exe"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "kill-npm-procs",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"taskkill /F /IM npm.exe"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "clean-node-modules",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"rmdir /s /q node_modules"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "install-fresh-ignore-scripts",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"install",
+				"--ignore-scripts"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "verify-next-after-install",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"if exist node_modules\\.bin\\next.cmd (echo NEXT_OK) else (echo NEXT_MISSING)"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "cache-clean-and-ci",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"npm cache clean --force && rmdir /s /q node_modules && npm ci --ignore-scripts"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "force-wipe-node-modules",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"mkdir __empty__ && robocopy __empty__ node_modules /MIR >nul & rmdir /s /q node_modules & rmdir /s /q __empty__"
+			],
+			"isBackground": false
+		},
+		{
+			"label": "run-next-via-npx-package",
+			"type": "shell",
+			"command": "npx",
+			"args": [
+				"--yes",
+				"next@16.2.2",
+				"dev",
+				"-p",
+				"3000"
+			],
+			"isBackground": false
+		}
+	]
+}
